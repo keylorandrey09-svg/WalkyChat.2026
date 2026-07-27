@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/legal/:doc", "destination": "/index.html" },
+    { "source": "/oauth/instagram", "destination": "/index.html" }
+  ]
+}
