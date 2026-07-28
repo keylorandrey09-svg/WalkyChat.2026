@@ -1309,11 +1309,20 @@
     background:var(--bg);padding:1.2rem;
   }
   .auth-card{
-    width:100%;max-width:400px;box-sizing:border-box;
+    width:100%;max-width:400px;box-sizing:border-box;position:relative;
     background:var(--surface);border:1px solid var(--border);
     border-radius:var(--r-lg);padding:2rem 1.8rem;
     box-shadow:var(--shadow-card);
   }
+  /* Volver a la landing (para quien no quiere registrarse). */
+  .auth-back{
+    position:absolute;top:14px;left:12px;width:34px;height:34px;border-radius:9px;
+    border:none;background:transparent;color:var(--text-3);cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;
+    transition:background .15s var(--ease), color .15s var(--ease);
+  }
+  .auth-back:hover{background:var(--hover);color:var(--text-1);}
+  .auth-back svg{width:20px;height:20px;}
   .auth-logo{display:flex;align-items:center;gap:.6rem;justify-content:center;margin-bottom:1.6rem;}
   .auth-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.4rem;}
   .auth-tab{
@@ -3691,6 +3700,9 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
 <div id="auth-screen" style="display:none;">
   <div class="auth-card">
+    <button type="button" class="auth-back" onclick="backToLanding()" aria-label="Volver a la página principal" title="Volver">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
     <div class="auth-logo">
       
       <div class="logo-text" role="img" aria-label="WalkyChat"></div>
@@ -5186,6 +5198,14 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     e.classList.add('show');
   }
   function hideAuthError(){ document.getElementById('auth-error').classList.remove('show'); }
+
+  /* Sale del login y vuelve a la landing (sin registrarse). No afecta la sesión. */
+  function backToLanding(){
+    hideAuthError();
+    document.getElementById('auth-screen').style.display = 'none';
+    showLanding();
+    try{ scrollLandingTo(0); }catch(e){}
+  }
 
   /* Entrar con Google (OAuth). Al volver del proveedor, la misma detección de
      sesión al cargar reconoce al usuario logueado (no cambia esa lógica). */
