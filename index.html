@@ -5309,16 +5309,16 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   }
 
   /* ===================== INSTAGRAM \u00b7 OAuth real =====================
-     El bot\u00f3n redirige al login oficial de Instagram. El backend (Edge
-     Function instagram-oauth) recibe el `code`, intercambia el token con el
-     App Secret (server-side) y guarda la fila en instagram_accounts; luego
-     redirige de vuelta a la app. Aqu\u00ed solo hacemos el redirect y leemos el
-     estado. `state` = access token de la sesi\u00f3n de Supabase: el backend lo
-     verifica para saber de forma segura qu\u00e9 usuario est\u00e1 conectando. */
+     El bot\u00f3n redirige al login oficial de Instagram. Instagram devuelve al
+     usuario a la APP (redirect_uri = la app) con ?code=XXXX. La app detecta
+     ese code y hace un POST autenticado (con la sesi\u00f3n de Supabase) a la Edge
+     Function instagram-oauth, que intercambia el token con el App Secret
+     (server-side) y guarda la fila en instagram_accounts. El App Secret NUNCA
+     toca el frontend. */
   const IG_OAUTH = {
     authBase: 'https://www.instagram.com/oauth/authorize',
     clientId: '2547354602407761',
-    redirectUri: 'https://cawiwkiddmjfesyoomyx.supabase.co/functions/v1/instagram-oauth',
+    redirectUri: 'https://walky-chat-2026.vercel.app/',
     scopes: [
       'instagram_business_basic',
       'instagram_business_manage_comments',
@@ -5327,44 +5327,63 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   };
 
   /* Redirige al consentimiento oficial de Instagram. Ambos botones "Conectar
-     con Instagram" (onboarding y Configuraci\u00f3n) llaman aqu\u00ed. */
-  async function startInstagramOAuth(btn){
+     con Instagram" (onboarding y Configuraci\u00f3n) llaman aqu\u00ed. Ya NO enviamos el
+     token de sesi\u00f3n por la URL: el flujo nuevo autentica por el POST a la Edge
+     Function (m\u00e1s seguro). */
+  function startInstagramOAuth(btn){
     clearIgConnectError();
-    let token = '';
-    try{
-      const { data } = await sb.auth.getSession();
-      token = (data && data.session && data.session.access_token) || '';
-    }catch(e){}
-    if(!token){
-      showToast('Tu sesi\u00f3n expir\u00f3. Vuelve a iniciar sesi\u00f3n.', 'error');
-      return;
-    }
     if(btn) setLoading(btn, true);   // estado "conectando / redirigiendo"
     const p = new URLSearchParams({
       client_id: IG_OAUTH.clientId,
       redirect_uri: IG_OAUTH.redirectUri,
       response_type: 'code',
-      scope: IG_OAUTH.scopes.join(','),
-      state: token
+      scope: IG_OAUTH.scopes.join(',')
     });
     location.href = IG_OAUTH.authBase + '?' + p.toString();
   }
 
-  /* Al volver del backend, la verdad del estado se lee de instagram_accounts
-     en loadUserData. Aqu\u00ed solo interpretamos el resultado del retorno
-     (?ig=connected | error | cancelled) para el toast y el estado de error. */
-  function handleInstagramReturn(){
+  /* Retorno del OAuth de Instagram. Instagram devuelve a la app con ?code=XXXX
+     (o ?error=/?error_reason= si el usuario cancel\u00f3). Detectamos el code al
+     arranque y hacemos el intercambio autenticado contra la Edge Function. */
+  async function handleInstagramReturn(){
     let params;
     try{ params = new URLSearchParams(location.search); }catch(e){ return; }
-    const r = params.get('ig');
-    if(!r) return;
-    if(r === 'connected'){
+
+    const code = params.get('code');
+    const oauthError = params.get('error') || params.get('error_reason');
+
+    /* Arranque normal: sin code ni error, no hacemos nada. */
+    if(!code && !oauthError) return;
+
+    /* Limpiamos el ?code= de la URL de inmediato. Los codes de Instagram son
+       de un solo uso: si el usuario refresca durante el intercambio, as\u00ed no se
+       reenv\u00eda y no dispara un segundo intento fallido. */
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+
+    /* El usuario cancel\u00f3 o Instagram devolvi\u00f3 un error. */
+    if(oauthError){
+      showIgConnectError();
+      showToast('La conexi\u00f3n con Instagram no se complet\u00f3.', 'error');
+      return;
+    }
+
+    /* Tenemos code: intercambio autenticado (supabase-js adjunta el JWT solo). */
+    showToast('Conectando con Instagram\u2026');
+    try{
+      const { data, error } = await sb.functions.invoke('instagram-oauth', { body: { code } });
+      if(error || !data || !data.ok){
+        showIgConnectError();
+        showToast('La conexi\u00f3n con Instagram no se complet\u00f3.', 'error');
+        return;
+      }
+      clearIgConnectError();
       showToast('Instagram conectado', 'success');
-    }else if(r === 'error' || r === 'cancelled'){
+      await fetchUserState();
+      renderAll();
+    }catch(e){
       showIgConnectError();
       showToast('La conexi\u00f3n con Instagram no se complet\u00f3.', 'error');
     }
-    try{ history.replaceState(null, '', location.pathname); }catch(e){}
   }
 
   /* Estado de error/cancelado (visible en onboarding y Configuraci\u00f3n). */
