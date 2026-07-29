@@ -940,6 +940,16 @@
   /* Acción de la sección (conectar/desconectar) alineada al flujo, sin footer partido */
   .acc-section-action{margin-top:1.3rem;}
 
+  /* Estado de error/cancelado de la conexión + nota de requisito */
+  .ig-error-note{
+    display:flex;align-items:flex-start;gap:0.55rem;text-align:left;
+    background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.28);
+    color:var(--red-text);border-radius:12px;padding:0.7rem 0.85rem;
+    font-size:0.82rem;line-height:1.45;
+  }
+  .ig-error-note svg{flex:0 0 16px;margin-top:1px;}
+  .ig-req-note{font-size:0.78rem;color:var(--text-3);line-height:1.45;}
+
   /* --- Uso del plan: referencia discreta, no titular. Dos filas horizontales --- */
   .acc-usage-row{
     display:grid;grid-template-columns:1fr auto;align-items:center;gap:0.6rem 1rem;
@@ -2868,7 +2878,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
         <a class="lp-btn lp-btn-primary lp-btn-lg" href="#" onclick="enterAppFromLanding(event, 'register')">Empezar gratis</a>
         <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#lp-como">Ver cómo funciona</a>
       </div>
-      <p class="lp-hero-note">Sin tarjeta para empezar · Conexión oficial con Instagram en desarrollo</p>
+      <p class="lp-hero-note">Sin tarjeta para empezar · Conexión oficial con Instagram</p>
 
       <!-- Visual móvil: el momento comentario → DM (oculto en desktop) -->
       <div class="lp-hero-flow" aria-hidden="true">
@@ -3894,7 +3904,12 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
           <p style="color:var(--text-2);font-size:0.95rem;line-height:1.6;max-width:380px;margin:0 0 1.8rem;">
             Sin esto, WalkyChat no puede leer los comentarios de tus publicaciones ni responderlos por ti.
           </p>
-          <button class="btn btn-primary lg" style="width:auto;" onclick="openIgConnect()">Conectar Instagram</button>
+          <div class="ig-error-note" style="display:none;max-width:400px;margin:0 0 1.2rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>La conexión no se completó. No autorizaste el acceso o el proceso se interrumpió. Puedes intentarlo de nuevo.</span>
+          </div>
+          <button class="btn btn-primary lg" style="width:auto;" onclick="startInstagramOAuth(this)">Conectar con Instagram</button>
+          <p class="ig-req-note" style="margin:0.9rem 0 0;">Requiere una cuenta profesional de Instagram (Creador o Empresa).</p>
 
           <!-- Indicador de progreso -->
           <div class="ob-stepper">
@@ -4459,9 +4474,14 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
                   <div class="acc-hero-sub" style="font-family:inherit;font-size:0.84rem;color:var(--text-2);max-width:420px;line-height:1.5;margin-top:0.35rem;">Sin esto, WalkyChat no puede leer los comentarios de tus publicaciones ni responderlos por ti.</div>
                 </div>
               </div>
-              <div class="acc-section-action">
-                <button class="btn btn-primary" onclick="openIgConnect()">Conectar Instagram</button>
+              <div class="ig-error-note" style="display:none;margin-top:1.1rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span>La conexión no se completó. No autorizaste el acceso o el proceso se interrumpió. Puedes intentarlo de nuevo.</span>
               </div>
+              <div class="acc-section-action">
+                <button class="btn btn-primary" onclick="startInstagramOAuth(this)">Conectar con Instagram</button>
+              </div>
+              <p class="ig-req-note" style="margin-top:0.9rem;">Requiere una cuenta profesional de Instagram (Creador o Empresa).</p>
             </div>
 
             <div id="account-ig-connected" style="display:none;">
@@ -4616,31 +4636,6 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   </div>
 </div>
 
-<!-- ===================== MODAL · CONECTAR INSTAGRAM =====================
-     Maqueta del consentimiento OAuth. La parte de consentimiento (icono,
-     título, permisos, nota) es la definitiva y se queda en producción.
-     En modo desarrollo aparece el bloque #igc-dev para simular la conexión;
-     en modo 'live' se oculta y "Continuar" redirige al login oficial de Meta. -->
-<div id="ig-connect-overlay" class="modal-overlay" onclick="if(event.target===this)closeIgConnect()">
-  <div class="modal-box igc-box">
-    <div class="igc-title">Conectar Instagram</div>
-    <p class="igc-sub">Te llevamos al login oficial de Instagram para autorizar a WalkyChat. Nunca vemos tu contraseña.</p>
-    <div class="igc-perms">
-      <div class="igc-perm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Leer los comentarios de tus publicaciones</span></div>
-      <div class="igc-perm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg><span>Enviar un DM a quien comente tu palabra clave</span></div>
-    </div>
-    <p class="igc-req">Requiere una cuenta profesional de Instagram (Creador o Empresa).</p>
-    <div class="igc-dev" id="igc-dev">
-      <div class="igc-dev-label">Modo desarrollo · simular conexión</div>
-      <input id="igc-handle" type="text" placeholder="@tu_usuario" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();igcPrimary(document.getElementById('igc-primary'));}">
-    </div>
-    <div class="igc-actions">
-      <button class="btn btn-primary" id="igc-primary" onclick="igcPrimary(this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="3.7"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg><span id="igc-primary-label">Continuar</span></button>
-      <button class="igc-cancel" onclick="closeIgConnect()">Cancelar</button>
-    </div>
-  </div>
-</div>
-
 <!-- ===================== MODAL DE SOPORTE ===================== -->
 <div id="support-overlay" class="modal-overlay" onclick="if(event.target===this)closeSupport()">
   <div class="modal-box">
@@ -4754,6 +4749,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     plan: { name: PLAN_FALLBACK.name, price: PLAN_FALLBACK.price, msgLimit: PLAN_FALLBACK.msgLimit, kwLimit: PLAN_FALLBACK.kwLimit },
     igConnected: false,
     igHandle: '',
+    igType: '',
     automations: [],     /* { id, name, keyword, message, link, postUrls, status, detected, sent } */
     stats: { weekly: [0, 0, 0, 0] },
     events: [],          /* eventos crudos { automation_id, event_type, created_at } */
@@ -4862,6 +4858,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     if(ig){
       appState.igConnected = !!ig.connected;
       appState.igHandle = ig.handle || '';
+      appState.igType = ig.account_type || '';
     }
 
     /* Automatizaciones + publicaciones vinculadas + conteo de eventos */
@@ -5311,149 +5308,80 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     showToast('Cuenta eliminada', 'success');
   }
 
-  /* ===================== INSTAGRAM [META] =====================
-     Punto único de verdad para el OAuth de Instagram. Para pasar a REAL
-     cuando Meta apruebe la API:
-       1) IG_OAUTH.mode = 'live'
-       2) rellenar appId y redirectUri
-          (redirectUri = tu dominio de Vercel + la ruta de retorno,
-           p. ej. https://walkychat.tld/oauth/instagram — esa ruta debe
-           servir este index.html para que el SPA lea el ?code de vuelta)
-       3) desplegar la Edge Function de Supabase que intercambia el `code`
-          por un token de larga duración (server-side, usa el App Secret,
-          que NUNCA puede ir en el navegador) y guarda token + ig_user_id.
-     La UI y el estado ya están cableados: no hay que tocar más pantallas.
-     Columnas que necesitará instagram_accounts para el modo live:
-       access_token (text), token_expires_at (timestamptz), ig_user_id (text). */
+  /* ===================== INSTAGRAM \u00b7 OAuth real =====================
+     El bot\u00f3n redirige al login oficial de Instagram. El backend (Edge
+     Function instagram-oauth) recibe el `code`, intercambia el token con el
+     App Secret (server-side) y guarda la fila en instagram_accounts; luego
+     redirige de vuelta a la app. Aqu\u00ed solo hacemos el redirect y leemos el
+     estado. `state` = access token de la sesi\u00f3n de Supabase: el backend lo
+     verifica para saber de forma segura qu\u00e9 usuario est\u00e1 conectando. */
   const IG_OAUTH = {
-    mode: 'mock',            // 'mock' | 'live'
-    appId: '',               // Instagram App ID (Meta) — rellenar en live
-    redirectUri: '',         // URL de retorno en tu dominio — rellenar en live
     authBase: 'https://www.instagram.com/oauth/authorize',
+    clientId: '2547354602407761',
+    redirectUri: 'https://cawiwkiddmjfesyoomyx.supabase.co/functions/v1/instagram-oauth',
     scopes: [
       'instagram_business_basic',
-      'instagram_business_manage_messages',
-      'instagram_business_manage_comments'
+      'instagram_business_manage_comments',
+      'instagram_business_manage_messages'
     ]
   };
 
-  /* Abre la maqueta de consentimiento. Ambos botones "Conectar Instagram"
-     (Inicio y Cuenta) llaman aquí. */
-  function openIgConnect(){
-    const live = IG_OAUTH.mode === 'live';
-    const dev = document.getElementById('igc-dev');
-    const lbl = document.getElementById('igc-primary-label');
-    if(dev) dev.style.display = live ? 'none' : '';
-    if(lbl) lbl.textContent = live ? 'Continuar con Instagram' : 'Continuar';
-    const overlay = document.getElementById('ig-connect-overlay');
-    if(overlay) overlay.classList.add('open');
-    if(!live){
-      const h = document.getElementById('igc-handle');
-      if(h){ h.value = ''; setTimeout(() => h.focus(), 60); }
-    }
-  }
-
-  function closeIgConnect(){
-    const overlay = document.getElementById('ig-connect-overlay');
-    if(overlay) overlay.classList.remove('open');
-  }
-
-  /* Botón primario del modal: en live redirige a Meta, en mock simula. */
-  async function igcPrimary(btn){
-    if(IG_OAUTH.mode === 'live'){ startInstagramOAuth(); return; }
-    await mockConnectInstagram(btn);
-  }
-
-  /* LIVE: redirige al consentimiento oficial de Instagram. */
-  function startInstagramOAuth(){
-    if(!IG_OAUTH.appId || !IG_OAUTH.redirectUri){
-      showToast('Falta configurar la app de Meta (appId/redirectUri).', 'error');
+  /* Redirige al consentimiento oficial de Instagram. Ambos botones "Conectar
+     con Instagram" (onboarding y Configuraci\u00f3n) llaman aqu\u00ed. */
+  async function startInstagramOAuth(btn){
+    clearIgConnectError();
+    let token = '';
+    try{
+      const { data } = await sb.auth.getSession();
+      token = (data && data.session && data.session.access_token) || '';
+    }catch(e){}
+    if(!token){
+      showToast('Tu sesi\u00f3n expir\u00f3. Vuelve a iniciar sesi\u00f3n.', 'error');
       return;
     }
-    const state = igcNewState();
-    try{ sessionStorage.setItem('ig_oauth_state', state); }catch(e){}
-    location.href = buildInstagramAuthUrl(state);
-  }
-
-  function buildInstagramAuthUrl(state){
+    if(btn) setLoading(btn, true);   // estado "conectando / redirigiendo"
     const p = new URLSearchParams({
-      client_id: IG_OAUTH.appId,
+      client_id: IG_OAUTH.clientId,
       redirect_uri: IG_OAUTH.redirectUri,
       response_type: 'code',
       scope: IG_OAUTH.scopes.join(','),
-      state: state || ''
+      state: token
     });
-    return IG_OAUTH.authBase + '?' + p.toString();
+    location.href = IG_OAUTH.authBase + '?' + p.toString();
   }
 
-  function igcNewState(){
-    try{
-      const a = new Uint8Array(16); crypto.getRandomValues(a);
-      return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
-    }catch(e){
-      return String(Date.now()) + Math.random().toString(16).slice(2);
-    }
-  }
-
-  /* LIVE: al volver de Meta la URL trae ?code=...&state=... Verificamos el
-     state y delegamos el intercambio del code al backend. Guardado detrás
-     de mode==='live', así que en mock no hace nada. */
-  async function handleInstagramCallback(){
-    if(IG_OAUTH.mode !== 'live') return;
+  /* Al volver del backend, la verdad del estado se lee de instagram_accounts
+     en loadUserData. Aqu\u00ed solo interpretamos el resultado del retorno
+     (?ig=connected | error | cancelled) para el toast y el estado de error. */
+  function handleInstagramReturn(){
     let params;
     try{ params = new URLSearchParams(location.search); }catch(e){ return; }
-    const code = params.get('code');
-    const state = params.get('state');
-    if(!code) return;
-    let saved = '';
-    try{ saved = sessionStorage.getItem('ig_oauth_state') || ''; }catch(e){}
-    if(saved && state && saved !== state){
-      showToast('La conexión no se pudo verificar. Intenta de nuevo.', 'error');
-      return;
-    }
-    /* Intercambio del code por token en el backend (Edge Function). El JWT del
-       usuario viaja en la llamada, así la función sabe a quién asignar la cuenta. */
-    try{
-      const { data, error } = await sb.functions.invoke('instagram-oauth', { body: { code } });
-      if(error || !data || data.error){
-        showToast('No se pudo completar la conexión con Instagram. Intenta de nuevo.', 'error');
-        return;
-      }
-      appState.igConnected = true;
-      if(data.handle) appState.igHandle = data.handle;
-      /* Limpia el ?code de la URL para que un reload no reintente el intercambio. */
-      try{ history.replaceState(null, '', location.pathname); }catch(e){}
-      try{ sessionStorage.removeItem('ig_oauth_state'); }catch(e){}
-      renderAll();
+    const r = params.get('ig');
+    if(!r) return;
+    if(r === 'connected'){
       showToast('Instagram conectado', 'success');
-    }catch(e){
-      showToast('No se pudo completar la conexión con Instagram.', 'error');
+    }else if(r === 'error' || r === 'cancelled'){
+      showIgConnectError();
+      showToast('La conexi\u00f3n con Instagram no se complet\u00f3.', 'error');
     }
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
   }
 
-  /* MOCK: sin API todavía. El usuario escribe su handle real (no inventamos
-     datos) y marcamos la cuenta como conectada para probar el resto del flujo. */
-  async function mockConnectInstagram(btn){
-    const input = document.getElementById('igc-handle');
-    let handle = ((input && input.value) || '').trim().replace(/^@+/, '');
-    if(!/^[A-Za-z0-9._]{1,30}$/.test(handle)){
-      showToast('Ese usuario no parece válido.', 'error');
-      if(input) input.focus();
-      return;
-    }
-    handle = '@' + handle;
-    setLoading(btn, true);
-    const uid = appState.user && appState.user.id;
-    const { error } = await sb.from('instagram_accounts').upsert({
-      user_id: uid, handle: handle, connected: true
-    }, { onConflict: 'user_id' });
-    setLoading(btn, false);
-    if(error){ showToast('No se pudo conectar. Intenta de nuevo.', 'error'); return; }
-    appState.igConnected = true;
-    appState.igHandle = handle;
-    closeIgConnect();
-    renderAll();
-    showToast('Instagram conectado', 'success');
+  /* Estado de error/cancelado (visible en onboarding y Configuraci\u00f3n). */
+  function showIgConnectError(){
+    document.querySelectorAll('.ig-error-note').forEach(function(n){ n.style.display = 'flex'; });
+  }
+  function clearIgConnectError(){
+    document.querySelectorAll('.ig-error-note').forEach(function(n){ n.style.display = 'none'; });
+  }
+
+  /* Formatea account_type real (sin inventar). */
+  function formatIgType(t){
+    var v = (t || '').toString().toUpperCase();
+    if(v === 'BUSINESS') return 'Cuenta profesional \u00b7 Empresa';
+    if(v === 'MEDIA_CREATOR' || v === 'CREATOR') return 'Cuenta profesional \u00b7 Creador';
+    if(v === 'PERSONAL') return 'Cuenta personal';
+    return 'Cuenta conectada';
   }
 
   async function requestDisconnectInstagram(btn){
@@ -5468,6 +5396,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     await sb.from('instagram_accounts').update({ connected: false }).eq('user_id', uid);
     appState.igConnected = false;
     appState.igHandle = '';
+    appState.igType = '';
     renderAll();
     goToView('cuenta');
     showToast('Instagram desconectado');
@@ -5643,7 +5572,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     document.getElementById('account-ig-connected').style.display = appState.igConnected ? 'block' : 'none';
     document.getElementById('acc-ig-footer').style.display = appState.igConnected ? 'flex' : 'none';
     document.getElementById('acc-ig-handle').textContent = appState.igHandle || '—';
-    document.getElementById('acc-ig-type').textContent = appState.igConnected ? 'Cuenta profesional · verificación completa con Meta' : '—';
+    document.getElementById('acc-ig-type').textContent = appState.igConnected ? formatIgType(appState.igType) : '—';
     /* Avatar: inicial del handle */
     const h = (appState.igHandle || '').replace(/^@/, '');
     document.getElementById('acc-avatar').textContent = h ? h.charAt(0).toUpperCase() : '@';
@@ -7415,7 +7344,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   })();
 
   initPaddle();
-  handleInstagramCallback();
+  handleInstagramReturn();
 
   (async function init(){
     /* La landing es la pantalla de entrada. Solo saltamos directo a la app si
