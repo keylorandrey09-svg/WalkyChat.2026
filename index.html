@@ -1803,6 +1803,16 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   border:1px solid rgba(34,197,94,0.32);border-radius:999px;padding:0.32rem 0.8rem;
 }
 .gate-note{margin-top:0.7rem;line-height:1.5;}
+/* Respuestas predeterminadas del follow-gate: un clic rellena el campo */
+.gate-presets{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.55rem;}
+.gate-preset{
+  font-size:0.75rem;color:var(--text-2);background:var(--surface);
+  border:1px solid var(--border-strong);border-radius:999px;
+  padding:0.32rem 0.7rem;cursor:pointer;font-family:inherit;line-height:1.3;
+  text-align:left;transition:border-color .15s var(--ease), background .15s var(--ease);
+}
+.gate-preset:hover{border-color:var(--text-3);background:var(--navy-raised);}
+.gate-preset:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(34,197,94,.22);}
 /* Marca discreta del plan Free dentro del mensaje (· Powered by WalkyChat) */
 .brand-inline{color:var(--text-3);font-size:0.72rem;opacity:0.8;}
 .prev-qr-row{margin-top:0.5rem;}
@@ -4179,13 +4189,28 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
                 </div>
                 <div class="gate-body" id="gate-body" style="display:none;">
                   <label class="field-label" for="gate-message" style="margin-top:0.2rem;">Mensaje de invitación</label>
+                  <div class="gate-presets">
+                    <button type="button" class="gate-preset" onclick="fillGatePreset('message', this)">Vi tu comentario 👀 Sígueme para recibirlo.</button>
+                    <button type="button" class="gate-preset" onclick="fillGatePreset('message', this)">¡Sígueme y te lo envío al instante! 🎁</button>
+                    <button type="button" class="gate-preset" onclick="fillGatePreset('message', this)">Para desbloquearlo solo necesitas seguirme 👀</button>
+                  </div>
                   <input type="text" id="gate-message" maxlength="120" placeholder="Vi tu comentario 👀 Sígueme para recibirlo." oninput="onFollowGateInput()">
                   <div class="field-hint"><span id="gate-count">0</span>/120 caracteres</div>
+
+                  <label class="field-label" for="gate-reminder" style="margin-top:0.95rem;">Mensaje de recordatorio</label>
+                  <div class="field-hint" style="margin:-0.3rem 0 0.55rem;">Segundo aviso, por si vuelve sin seguir. Opcional.</div>
+                  <div class="gate-presets">
+                    <button type="button" class="gate-preset" onclick="fillGatePreset('reminder', this)">Aún no te veo siguiéndome 🙈 Sígueme y te lo mando</button>
+                    <button type="button" class="gate-preset" onclick="fillGatePreset('reminder', this)">Un pasito más: sígueme y es tuyo ✅</button>
+                  </div>
+                  <input type="text" id="gate-reminder" maxlength="120" placeholder="Vale, si quieres el recurso solo tienes que seguirme 🙂" oninput="onFollowGateReminderInput()">
+                  <div class="field-hint"><span id="gate-reminder-count">0</span>/120 caracteres</div>
+
                   <div class="gate-btn-preview">
                     <span class="gate-btn-label">Botón que verá tu seguidor</span>
                     <span class="gate-qr">Ya te seguí ✅</span>
                   </div>
-                  <div class="field-hint gate-note">Tu seguidor solo toca ese botón para continuar; no escribe nada. Instagram no permite confirmar si de verdad te siguió, así que el toque del botón es lo que dispara la entrega — sin verificaciones falsas.</div>
+                  <div class="field-hint gate-note">Tu seguidor solo toca ese botón para continuar; no escribe nada. Instagram no permite confirmar el seguimiento con el acceso actual, así que hoy el toque del botón dispara la entrega — sin verificaciones falsas.</div>
                 </div>
               </div>
             </div>
@@ -4900,6 +4925,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       comment_reply: a.comment_reply || '',
       follow_gate: !!a.follow_gate,
       follow_gate_message: a.follow_gate_message || '',
+      follow_gate_reminder: a.follow_gate_reminder || '',
       postUrls: postsBy[a.id] || [],
       status: a.status,
       created_at: a.created_at || null,
@@ -5494,6 +5520,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     applyReplyUI();
     createState.followGate = !!a.follow_gate;
     createState.followGateMessage = a.follow_gate_message || FOLLOW_GATE_DEFAULT;
+    createState.followGateReminder = a.follow_gate_reminder || '';
     applyFollowGateUI();
     onMessageInput();
   }
@@ -6488,13 +6515,14 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     replyCustom: '',    /* texto de la respuesta personalizada */
     replyCustomOn: false,/* si la casilla "Escribir la mía" está activa */
     followGate: false,  /* paso opcional "pedir seguir antes de entregar" */
-    followGateMessage: FOLLOW_GATE_DEFAULT
+    followGateMessage: FOLLOW_GATE_DEFAULT,
+    followGateReminder: ''  /* 2do aviso si vuelve sin seguir (opcional) */
   };
   const MAX_POSTS = 6;
   let editingPostIndex = null;  /* índice del enlace en edición, o null */
 
   function resetCreateFlow(){
-    createState = { postUrls: [], keyword: '', message: '', link: '', replyPresets: [0], replyCustom: '', replyCustomOn: false, followGate: false, followGateMessage: FOLLOW_GATE_DEFAULT };
+    createState = { postUrls: [], keyword: '', message: '', link: '', replyPresets: [0], replyCustom: '', replyCustomOn: false, followGate: false, followGateMessage: FOLLOW_GATE_DEFAULT, followGateReminder: '' };
     const rc = document.getElementById('reply-custom');
     if(rc){ rc.value = ''; }
     const rcnt = document.getElementById('reply-count');
@@ -6835,6 +6863,30 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     document.getElementById('gate-count').textContent = input.value.length;
     updateGatePreview();
   }
+  function onFollowGateReminderInput(){
+    const input = document.getElementById('gate-reminder');
+    createState.followGateReminder = input.value;
+    document.getElementById('gate-reminder-count').textContent = input.value.length;
+  }
+  /* Respuestas predeterminadas: un clic rellena el campo (editable después).
+     El texto se lee del propio botón, así no hay problemas de comillas/emoji. */
+  function fillGatePreset(which, btn){
+    const text = (btn.textContent || '').trim();
+    if(which === 'reminder'){
+      const input = document.getElementById('gate-reminder');
+      if(input){ input.value = text; input.focus(); }
+      createState.followGateReminder = text;
+      const cnt = document.getElementById('gate-reminder-count');
+      if(cnt) cnt.textContent = text.length;
+    }else{
+      const input = document.getElementById('gate-message');
+      if(input){ input.value = text; input.focus(); }
+      createState.followGateMessage = text;
+      const cnt = document.getElementById('gate-count');
+      if(cnt) cnt.textContent = text.length;
+      updateGatePreview();
+    }
+  }
   function applyFollowGateUI(){
     const on = !!createState.followGate;
     const sw = document.getElementById('gate-switch');
@@ -6846,6 +6898,12 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       input.value = createState.followGateMessage || '';
       const cnt = document.getElementById('gate-count');
       if(cnt) cnt.textContent = (createState.followGateMessage || '').length;
+    }
+    const rinput = document.getElementById('gate-reminder');
+    if(rinput){
+      rinput.value = createState.followGateReminder || '';
+      const rcnt = document.getElementById('gate-reminder-count');
+      if(rcnt) rcnt.textContent = (createState.followGateReminder || '').length;
     }
     updateGatePreview();
   }
@@ -6955,7 +7013,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       link: createState.link || null,
       comment_reply: serializeReplies(getSelectedReplies()),
       follow_gate: !!createState.followGate,
-      follow_gate_message: createState.followGate ? (createState.followGateMessage || FOLLOW_GATE_DEFAULT) : null
+      follow_gate_message: createState.followGate ? (createState.followGateMessage || FOLLOW_GATE_DEFAULT) : null,
+      follow_gate_reminder: createState.followGate ? ((createState.followGateReminder || '').trim() || null) : null
     };
 
     let automationId = editingId;
@@ -6972,7 +7031,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     /* Si alguna columna opcional aún no existe en la BD (migración pendiente),
        la quitamos y reintentamos. Cubre comment_reply y el paso "pedir seguir".
        Se listan de más específica a más general para no borrar de más. */
-    const OPTIONAL_COLS = ['follow_gate_message', 'follow_gate', 'comment_reply'];
+    const OPTIONAL_COLS = ['follow_gate_reminder', 'follow_gate_message', 'follow_gate', 'comment_reply'];
     const stripped = [];
     let guard = 0;
     while(saved.error && guard < OPTIONAL_COLS.length){
