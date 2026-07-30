@@ -173,7 +173,7 @@
     width:240px;flex-shrink:0;background:var(--navy);
     border-right:1px solid var(--border);
     display:flex;flex-direction:column;padding:1.5rem 1rem;
-    position:sticky;top:0;height:100vh;
+    position:fixed;top:0;left:0;height:100vh;z-index:30;
   }
   .logo{display:flex;align-items:center;gap:0.65rem;padding:0 0.5rem 1rem;margin-bottom:0.75rem;border-bottom:1px solid var(--border);}
   .logo-mark{width:26px;height:26px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.85rem;}
@@ -1529,9 +1529,18 @@
   --ease:cubic-bezier(.4,0,.2,1);
 }
 #app-root{background:var(--bg);}
+/* Logo del panel: al tocarlo se ofrece volver a la página principal */
+.logo-clickable{cursor:pointer;border-radius:8px;transition:opacity .15s var(--ease);}
+.logo-clickable:hover{opacity:.72;}
+.logo-clickable:focus-visible{outline:2px solid var(--blue);outline-offset:3px;}
 
 /* ---------- Sidebar: proporciones limpias, estado activo refinado ---------- */
 .sidebar{width:252px;padding:1.25rem 1.15rem 1.1rem;background:var(--navy);}
+/* La página scrollea con el body; el sidebar va fijo al viewport para que el
+   rebote (overscroll) en los extremos no deje un hueco en la columna izquierda.
+   Al quedar fuera del flujo, el contenido se corre 252px (ancho del sidebar).
+   En móvil el sidebar se oculta y el contenido no lleva margen. */
+@media (min-width:769px){ .app-main{ margin-left:252px; } }
 .logo{padding:0 0.55rem 1rem;margin-bottom:1.5rem;border-bottom:none;}
 .nav-section{margin-bottom:0.9rem;}
 .nav-item{
@@ -3754,7 +3763,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
   <!-- ===================== SIDEBAR ===================== -->
   <aside class="sidebar" id="sidebar">
-    <div class="logo">
+    <div class="logo logo-clickable" role="button" tabindex="0" title="Ir a la página principal" onclick="goToLandingFromApp()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goToLandingFromApp();}">
       
       <div class="logo-text" role="img" aria-label="WalkyChat"></div>
     </div>
@@ -3810,7 +3819,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
   <!-- ===================== MOBILE TOPBAR ===================== -->
   <div class="mobile-topbar">
-    <div class="logo">
+    <div class="logo logo-clickable" role="button" tabindex="0" title="Ir a la página principal" onclick="goToLandingFromApp()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goToLandingFromApp();}">
       
       <div class="logo-text" role="img" aria-label="WalkyChat"></div>
     </div>
@@ -3897,7 +3906,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   </aside>
 
   <!-- ===================== MAIN AREA ===================== -->
-  <div style="flex:1;">
+  <div class="app-main" style="flex:1;">
 
     <!-- ============================================================ -->
     <!-- VIEW: INICIO                                                  -->
@@ -4208,7 +4217,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
                   <div class="gate-btn-preview">
                     <span class="gate-btn-label">Botón que verá tu seguidor</span>
-                    <span class="gate-qr">Ya te seguí ✅</span>
+                    <span class="gate-qr">¡Siguiendo! ✅</span>
                   </div>
                   <div class="field-hint gate-note">Tu seguidor solo toca ese botón para continuar; no escribe nada. Instagram no permite confirmar el seguimiento con el acceso actual, así que hoy el toque del botón dispara la entrega — sin verificaciones falsas.</div>
                 </div>
@@ -5226,6 +5235,24 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   /* Sale del login y vuelve a la landing (sin registrarse). No afecta la sesión. */
   function backToLanding(){
     hideAuthError();
+    document.getElementById('auth-screen').style.display = 'none';
+    showLanding();
+    try{ scrollLandingTo(0); }catch(e){}
+  }
+
+  /* Volver a la página principal DESDE la app (logo del sidebar / topbar).
+     No cierra sesión: solo sale del panel. showLanding() quita el "#app", así
+     que un reload posterior también muestra la landing; y desde ahí
+     "Empezar/Iniciar sesión" reconoce la sesión y devuelve al panel. */
+  async function goToLandingFromApp(){
+    const ok = await confirmAction({
+      title: 'Volver a la página principal',
+      message: 'Vas a salir del panel. Tu sesión sigue abierta y puedes volver a entrar cuando quieras.',
+      confirmLabel: 'Ir a la página principal'
+    });
+    if(!ok) return;
+    try{ closeDrawer(); }catch(e){}
+    document.getElementById('app-root').style.display = 'none';
     document.getElementById('auth-screen').style.display = 'none';
     showLanding();
     try{ scrollLandingTo(0); }catch(e){}
@@ -6503,9 +6530,10 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     return createState.replyPresets.length + (createState.replyCustomOn ? 1 : 0);
   }
   /* Paso opcional "pedir seguir": mensaje de invitación por defecto. El botón
-     de respuesta rápida "Ya te seguí ✅" es fijo (así el seguidor solo toca). */
+     de respuesta rápida "¡Siguiendo! ✅" es fijo (así el seguidor solo toca).
+     El texto real lo envía el dm-worker; este debe coincidir con él. */
   const FOLLOW_GATE_DEFAULT = 'Vi tu comentario 👀 Sígueme para recibirlo.';
-  const FOLLOW_GATE_BUTTON = 'Ya te seguí ✅';
+  const FOLLOW_GATE_BUTTON = '¡Siguiendo! ✅';
   let createState = {
     postUrls: [],       /* [{url, type}] — máx 6, únicos globalmente */
     keyword: '',
