@@ -4752,7 +4752,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     igType: '',
     automations: [],     /* { id, name, keyword, message, link, postUrls, status, detected, sent } */
     stats: { weekly: [0, 0, 0, 0] },
-    events: [],          /* eventos crudos { automation_id, event_type, created_at } */
+    events: [],          /* eventos crudos { automation_id, event_type, status, created_at } */
     anRange: 720         /* rango de Analíticas en horas (24 | 168 | 720 | 2160) */
   };
   let listFilter = 'all';
@@ -4872,15 +4872,16 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
     /* Traer todos los eventos del usuario de una vez y agregarlos en memoria */
     const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: events } = await sb.from('automation_events').select('automation_id,event_type,created_at');
+    const { data: events } = await sb.from('automation_events').select('automation_id,event_type,status,created_at');
     const ev = events || [];
     appState.events = ev; /* crudos, para re-agregar por rango en Analíticas */
 
     const detectedBy = {}, sentBy = {};
     const weekly = [0, 0, 0, 0];
     ev.forEach(e => {
-      if(e.event_type === 'detected') detectedBy[e.automation_id] = (detectedBy[e.automation_id] || 0) + 1;
-      if(e.event_type === 'sent'){
+      /* Una deteccion = existe la fila del evento (event_type siempre es 'comment'). */
+      detectedBy[e.automation_id] = (detectedBy[e.automation_id] || 0) + 1;
+      if(e.status === 'sent'){
         sentBy[e.automation_id] = (sentBy[e.automation_id] || 0) + 1;
         if(e.created_at >= since){
           const daysAgo = Math.floor((Date.now() - new Date(e.created_at).getTime()) / (24 * 60 * 60 * 1000));
@@ -5541,8 +5542,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     (appState.events || []).forEach(e => {
       const ts = new Date(e.created_at).getTime();
       if(isNaN(ts) || ts < from) return;
-      if(e.event_type === 'sent') sent++;
-      else if(e.event_type === 'detected') detected++;
+      detected++;                    /* toda fila del ciclo = una deteccion */
+      if(e.status === 'sent') sent++;
     });
     return { sent: sent, detected: detected };
   }
@@ -5851,7 +5852,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     /* Último envío por automatización, desde los eventos reales. */
     const lastSent = {};
     (appState.events || []).forEach(e => {
-      if(e.event_type !== 'sent') return;
+      if(e.status !== 'sent') return;
       const ts = new Date(e.created_at).getTime();
       if(isNaN(ts)) return;
       if(!lastSent[e.automation_id] || ts > lastSent[e.automation_id]) lastSent[e.automation_id] = ts;
@@ -6395,9 +6396,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     (appState.events || []).forEach(e => {
       const ts = new Date(e.created_at).getTime();
       if(isNaN(ts) || ts < from || ts > now) return;
-      if(e.event_type === 'detected'){
-        detected++;
-      } else if(e.event_type === 'sent'){
+      detected++;                    /* toda fila en la ventana = una deteccion */
+      if(e.status === 'sent'){
         sent++;
         for(let i = buckets.length - 1; i >= 0; i--){
           if(ts >= buckets[i].start){ values[i]++; break; }
