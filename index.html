@@ -3773,7 +3773,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         Proyectos
       </div>
-      <div class="nav-item" data-view="crear" onclick="goToView('crear')">
+      <div class="nav-item" data-view="crear" onclick="openCreateNew()">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
         Automatizaciones
       </div>
@@ -3841,7 +3841,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <span>Registros</span>
     </div>
-    <div class="bottom-nav-fab" onclick="goToView('crear')">
+    <div class="bottom-nav-fab" onclick="openCreateNew()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
     </div>
     <div class="bottom-nav-item" data-view="despliegues" onclick="goToView('despliegues')">
@@ -3856,7 +3856,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
   <!-- ===================== MOBILE DOCK (píldora flotante central) + DRAWER ===================== -->
   <div class="m-dock" role="toolbar" aria-label="Acciones rápidas">
-    <button class="m-dock-btn primary" onclick="goToView('crear')" aria-label="Crear">
+    <button class="m-dock-btn primary" onclick="openCreateNew()" aria-label="Crear">
       <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
     </button>
     <span class="m-dock-divider"></span>
@@ -3990,7 +3990,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
           <p class="empty-desc" id="empty-state-desc" style="margin:0 0 1.8rem;max-width:400px;">
             Elige una palabra que tus seguidores ya comentan y conviértela en una conversación automática.
           </p>
-          <button class="btn btn-primary lg" id="empty-state-cta" style="width:auto;" onclick="goToView('crear')">
+          <button class="btn btn-primary lg" id="empty-state-cta" style="width:auto;" onclick="openCreateNew()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
             Crear mi primera automatización
           </button>
@@ -4053,7 +4053,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
             <h1 class="page-title">Automatizaciones</h1>
             <p class="page-subtitle">Gestiona tus palabras clave y respuestas automáticas</p>
           </div>
-          <button class="btn btn-primary" onclick="goToView('crear')">
+          <button class="btn btn-primary" onclick="openCreateNew()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
             Nueva automatización
           </button>
@@ -4073,7 +4073,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
           <p style="color:var(--text-2);font-size:0.92rem;line-height:1.6;max-width:360px;margin:0 0 1.7rem;">
             Cuando crees una, aparecerá aquí con sus comentarios detectados, mensajes enviados y estado en vivo.
           </p>
-          <button class="btn btn-primary lg" style="width:auto;" onclick="goToView('crear')">Crear mi primera automatización</button>
+          <button class="btn btn-primary lg" style="width:auto;" onclick="openCreateNew()">Crear mi primera automatización</button>
         </div>
 
         <!-- LISTA: visible solo cuando hay automatizaciones -->
@@ -4124,6 +4124,9 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
           <!-- PASO 1: Publicación -->
           <div id="step-1">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+              <button class="btn btn-ghost" style="padding:0.35rem 0.7rem;font-size:0.85rem;" onclick="discardCreateDraft()">Empezar de nuevo</button>
+            </div>
             <h1 class="form-title">¿En qué publicaciones funcionará?</h1>
             <p class="form-desc">Vincula las publicaciones de Instagram donde esta palabra clave estará activa.</p>
 
@@ -4373,7 +4376,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
           <p style="color:var(--text-2);font-size:0.92rem;line-height:1.6;max-width:360px;margin:0 0 1.7rem;">
             Activa tu primera automatización para ver resultados.
           </p>
-          <button class="btn btn-primary lg" style="width:auto;" onclick="goToView('crear')">Crear mi primera automatización</button>
+          <button class="btn btn-primary lg" style="width:auto;" onclick="openCreateNew()">Crear mi primera automatización</button>
         </div>
 
         <!-- DATOS: visible solo cuando hay automatizaciones -->
@@ -4706,7 +4709,11 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     document.getElementById('view-' + viewName).classList.add('active');
     document.querySelectorAll('.nav-item, .bottom-nav-item, .m-drawer-item').forEach(n => n.classList.remove('active'));
     document.querySelectorAll('[data-view="' + viewName + '"]').forEach(n => n.classList.add('active'));
-    if(viewName === 'crear') resetCreateFlow();
+    if(viewName === 'crear'){
+      if(!createInitDone || successAreaShown()){ resetCreateFlow(); createInitDone = true; }
+      else if(editingId === null && !createHasContent()){ resetCreateFlow(); }
+      /* editando o con borrador en curso -> se conserva */
+    }
     if(viewName === 'registros') renderRegistros();
     if(viewName === 'despliegues') renderDespliegues();
     /* El gráfico se mide en píxeles reales: hay que dibujarlo con la vista ya
@@ -5544,8 +5551,10 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   function editAutomation(id){
     const a = appState.automations.find(x => x.id === id);
     if(!a) return;
-    goToView('crear');
+    resetCreateFlow();
+    createInitDone = true;
     editingId = id;
+    goToView('crear');
     createState.postUrls = (a.postUrls || []).map(p => ({ url: p.url, type: p.type }));
     renderPostCards();
     checkStep1();
@@ -5632,6 +5641,39 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   }
   function isKwLimitError(err){
     return !!err && /LIMIT_KW/i.test(err.message || '');
+  }
+
+  /* ===== Borrador de "Crear": se conserva en memoria al navegar; se pierde solo
+     al recargar/salir de la app o al descartar explícitamente. ===== */
+  let createInitDone = false;
+  function createHasContent(){
+    const v = id => { const el = document.getElementById(id); return el && el.value ? el.value.trim() : ''; };
+    return !!(
+      v('keyword-input') || v('dm-message') || v('dm-link') ||
+      (createState.postUrls && createState.postUrls.length) ||
+      (createState.replyCustom && createState.replyCustom.trim()) ||
+      createState.followGate
+    );
+  }
+  function successAreaShown(){
+    const el = document.getElementById('create-success-area');
+    return el && getComputedStyle(el).display !== 'none';
+  }
+  function openCreateNew(){
+    if(editingId !== null){ resetCreateFlow(); createInitDone = true; }
+    goToView('crear');
+  }
+  async function discardCreateDraft(){
+    if(createHasContent()){
+      const ok = await confirmAction({
+        title: 'Empezar de nuevo',
+        message: 'Se borrará lo que llevás de esta automatización. ¿Seguro?',
+        confirmLabel: 'Descartar', danger: true
+      });
+      if(!ok) return;
+    }
+    resetCreateFlow();
+    showToast('Borrador descartado');
   }
 
   /* Totales del CICLO vigente: son los que cuentan contra el límite del plan.
@@ -6622,6 +6664,9 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     document.getElementById('btn-step2').disabled = true;
     document.getElementById('btn-step3').disabled = true;
     goToStep(1);
+    var _fa = document.getElementById('create-form-area'); if(_fa) _fa.style.display = 'flex';
+    var _st = document.getElementById('create-steps');     if(_st) _st.style.display = 'flex';
+    var _sa = document.getElementById('create-success-area'); if(_sa) _sa.style.display = 'none';
   }
 
   function isValidIgUrl(url){
