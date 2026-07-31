@@ -1451,7 +1451,7 @@
   .post-url-row{display:flex;gap:0.6rem;margin-top:1rem;}
   .post-url-row input{flex:1;box-sizing:border-box;background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:0.65rem 0.9rem;color:var(--text-1);font-size:0.86rem;outline:none;min-width:0;}
   .post-url-row input:focus{border-color:var(--green);}
-  .post-editor-head{display:flex;justify-content:flex-end;margin-top:0.4rem;}
+  .post-editor-head{display:flex;justify-content:space-between;align-items:center;margin-top:0.4rem;}
   .post-capacity{font-family:var(--mono);font-size:0.72rem;letter-spacing:.06em;color:var(--text-3);}
   .post-capacity.full{color:var(--green-text);}
   .post-cards{display:flex;flex-direction:column;gap:0.6rem;margin-top:0.9rem;}
@@ -4124,15 +4124,13 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
           <!-- PASO 1: Publicación -->
           <div id="step-1">
-            <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
-              <button class="btn btn-ghost" style="padding:0.35rem 0.7rem;font-size:0.85rem;" onclick="discardCreateDraft()">Empezar de nuevo</button>
-            </div>
             <h1 class="form-title">¿En qué publicaciones funcionará?</h1>
             <p class="form-desc">Vincula las publicaciones de Instagram donde esta palabra clave estará activa.</p>
 
             <div class="field">
               <div id="post-picker">
                 <div class="post-editor-head">
+                  <button class="btn btn-ghost" style="padding:0.25rem 0.6rem;font-size:0.8rem;" onclick="discardCreateDraft()">Empezar de nuevo</button>
                   <span class="post-capacity" id="post-capacity">0 / 6 publicaciones</span>
                 </div>
                 <div class="post-url-row">
