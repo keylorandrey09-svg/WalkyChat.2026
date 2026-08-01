@@ -4159,6 +4159,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
                 <input type="text" id="keyword-input" placeholder="Máx. 11 caracteres (ej: GUIA o 🔥)" style="flex:1;min-width:200px;" oninput="onKeywordInput(this)">
               </div>
               <div class="field-hint"><span id="keyword-count">0</span>/11 caracteres</div>
+              <div class="field-hint">Debe ser una sola palabra, sin espacios (ej: HOLA, no HO LA).</div>
             </div>
 
             <div class="form-footer">
@@ -4718,6 +4719,9 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
        visible, porque una vista oculta (display:none) mide 0 de ancho. */
     if(viewName === 'analiticas') renderAnalytics();
     if(viewName === 'notificaciones'){ renderNotificaciones(); markNotificationsSeen(); }
+    if(['inicio','automatizaciones','despliegues','registros','analiticas'].indexOf(viewName) !== -1){
+      refreshData();
+    }
     window.scrollTo(0,0);
   }
 
@@ -4844,6 +4848,29 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   }
 
   /* ---------- Lectura de datos reales desde Supabase ---------- */
+  /* Refresco de datos con throttle. Los envíos ocurren en el servidor (webhook),
+     así que sin esto Proyectos/Despliegues/contadores quedan viejos hasta recargar.
+     No cambia lógica de datos: solo re-lee de Supabase y re-renderiza. */
+  let _lastRefresh = 0;
+  let _refreshing = false;
+  async function refreshData(opts){
+    const force = opts && opts.force;
+    if(_refreshing) return;
+    if(!force && Date.now() - _lastRefresh < 8000) return;   /* máx 1 cada 8s */
+    _refreshing = true;
+    try {
+      await fetchUserState();
+      _lastRefresh = Date.now();
+      renderAll();
+      const active = document.querySelector('.view.active');
+      const vid = active ? active.id.replace('view-','') : '';
+      if(vid === 'registros')   renderRegistros();
+      if(vid === 'despliegues') renderDespliegues();
+      if(vid === 'analiticas')  renderAnalytics();
+    } catch(e){ /* silencioso */ }
+    finally { _refreshing = false; }
+  }
+
   async function fetchUserState(){
     appState.igConnected = false;
     appState.igHandle = '';
@@ -6739,15 +6766,24 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   }
 
   /* En móvil, al agregar una publicación el contenido crece y «Continuar»
-     quedaba cortado abajo. Lo traemos a la vista automáticamente. */
+     quedaba cortado abajo. Lo traemos a la vista automáticamente.
+     Con un rAF simple a veces se medía la posición vieja (antes de que el
+     layout creciera con la tarjeta nueva) y no se movía nada. Ahora esperamos
+     el reflow, medimos la posición real y empujamos la ventana lo justo. */
   function revealStep1Continue(){
     if(!window.matchMedia || !window.matchMedia('(max-width:768px)').matches) return;
-    const btn = document.getElementById('btn-step1');
+    var btn = document.getElementById('btn-step1');
     if(!btn) return;
-    requestAnimationFrame(function(){
-      try{ btn.scrollIntoView({ behavior:'smooth', block:'center' }); }
-      catch(_){ btn.scrollIntoView(); }
-    });
+    setTimeout(function(){
+      var r = btn.getBoundingClientRect();
+      var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+      var margin = 110;                 /* aire para que no quede bajo el dock fijo */
+      var overflow = r.bottom - (vh - margin);
+      if(overflow > 4){
+        try{ window.scrollBy({ top: overflow, behavior: 'smooth' }); }
+        catch(_){ window.scrollBy(0, overflow); }
+      }
+    }, 90);
   }
 
   function editPostUrl(i){
@@ -6860,6 +6896,9 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   }
 
   function onKeywordInput(input){
+    /* La palabra clave es un solo token: sin espacios. Si se escriben o pegan,
+       se quitan al vuelo (el aviso del formulario lo explica). */
+    if(/\s/.test(input.value)){ input.value = input.value.replace(/\s+/g, ''); }
     /* No forzamos mayúsculas: un emoji no tiene mayúscula y toUpperCase() lo
        dejaba intacto pero rompía la simetría. El match se hace insensible a
        caso en la comparación (normKeyword), no aquí. */
@@ -7556,6 +7595,15 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     var app = document.getElementById('app-root');
     var dentro = app && getComputedStyle(app).display !== 'none';
     if(dentro) hideLanding();
+  });
+
+  /* Al volver el foco a la app, re-leer datos: los envíos ocurren en el servidor
+     (webhook), así que contadores/Proyectos/Despliegues pueden estar viejos.
+     Solo si estamos DENTRO de la app (evita resetear estado en la landing). */
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState !== 'visible') return;
+    var app = document.getElementById('app-root');
+    if(app && getComputedStyle(app).display !== 'none'){ refreshData({ force: true }); }
   });
 
   /* Anti-parpadeo: solo si venimos de un reload ESTANDO dentro (la URL trae
