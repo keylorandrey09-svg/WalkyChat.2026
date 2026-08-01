@@ -4871,6 +4871,29 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     finally { _refreshing = false; }
   }
 
+  /* Realtime: el backend tiene habilitado Realtime en automation_events (RLS
+     entrega a cada usuario solo lo suyo). Al llegar un evento (detección/envío)
+     refrescamos en vivo, sin recargar ni cambiar de vista. */
+  let _rtChannel = null;
+  let _rtTimer = null;
+  function startRealtime(){
+    const uid = appState.user && appState.user.id;
+    if(!uid || _rtChannel) return;                 /* sin usuario o ya suscrito */
+    _rtChannel = sb.channel('rt-events-' + uid)
+      .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'automation_events', filter: 'user_id=eq.' + uid },
+          function(){
+            /* coalesce ráfagas (detección + envío del mismo comentario) en un refresh */
+            clearTimeout(_rtTimer);
+            _rtTimer = setTimeout(function(){ refreshData({ force: true }); }, 1000);
+          })
+      .subscribe();
+  }
+  function stopRealtime(){
+    if(_rtChannel){ try { sb.removeChannel(_rtChannel); } catch(e){} _rtChannel = null; }
+    clearTimeout(_rtTimer);
+  }
+
   async function fetchUserState(){
     appState.igConnected = false;
     appState.igHandle = '';
@@ -5365,6 +5388,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app-root').style.display = '';
     goToView('inicio');
+    startRealtime();
   }
 
   function showAuth(){
@@ -5381,6 +5405,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       confirmLabel: 'Cerrar sesión'
     });
     if(!ok) return;
+    stopRealtime();
     await sb.auth.signOut();
     appState.user = null;
     showAuth();
@@ -7641,6 +7666,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('app-root').style.display = '';
         goToView('inicio');
+        startRealtime();
       }
     } else {
       /* Apertura en fresco o sin sesión: mostrar la landing. */
