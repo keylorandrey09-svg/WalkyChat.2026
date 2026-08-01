@@ -4894,6 +4894,21 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     clearTimeout(_rtTimer);
   }
 
+  /* Respaldo del Realtime: los envíos (status 'sent') se registran como UPDATE
+     y esos eventos no llegan de forma confiable (los INSERT/detecciones sí).
+     Un poll con la app visible cierra ese hueco. Reutiliza refreshData, que ya
+     tiene throttle de 8s, así que no recarga de más. */
+  let _pollTimer = null;
+  function startPolling(){
+    stopPolling();
+    _pollTimer = setInterval(function(){
+      if(document.visibilityState === 'visible'){ refreshData(); }  /* throttled */
+    }, 10000);   /* cada 10s */
+  }
+  function stopPolling(){
+    if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; }
+  }
+
   async function fetchUserState(){
     appState.igConnected = false;
     appState.igHandle = '';
@@ -5389,6 +5404,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     document.getElementById('app-root').style.display = '';
     goToView('inicio');
     startRealtime();
+    startPolling();
   }
 
   function showAuth(){
@@ -5406,6 +5422,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     });
     if(!ok) return;
     stopRealtime();
+    stopPolling();
     await sb.auth.signOut();
     appState.user = null;
     showAuth();
@@ -7667,6 +7684,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
         document.getElementById('app-root').style.display = '';
         goToView('inicio');
         startRealtime();
+        startPolling();
       }
     } else {
       /* Apertura en fresco o sin sesión: mostrar la landing. */
