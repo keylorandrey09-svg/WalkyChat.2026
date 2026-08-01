@@ -4669,7 +4669,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     <div class="welcome-emoji">👋</div>
     <div class="modal-title" style="font-size:1.25rem;">Bienvenido a WalkyChat</div>
     <div class="modal-message" style="margin-bottom:1.1rem;">
-      Conectá tu Instagram y automatizá tus respuestas. Esto es lo que vas a poder hacer:
+      Te damos la bienvenida. Con WalkyChat vas a poder convertir comentarios en entregas automáticas por DM. Esto es lo que podés hacer:
     </div>
     <ul class="ob-benefit-list welcome-benefits">
       <li>
@@ -4690,7 +4690,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       </li>
     </ul>
     <div class="modal-actions" style="justify-content:center;margin-top:1.3rem;">
-      <button class="btn btn-primary lg" onclick="closeWelcome(); startInstagramOAuth(this);">Conectar con Instagram</button>
+      <button class="btn btn-primary lg" onclick="closeWelcome()">Continuar</button>
     </div>
   </div>
 </div>
@@ -5413,7 +5413,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     goToView('inicio');
     startRealtime();
     startPolling();
-    if(!appState.welcomeSeenAt && !appState.igConnected){ showWelcome(); }
+    if(!appState.welcomeSeenAt){ showWelcome(); }
   }
 
   function showAuth(){
