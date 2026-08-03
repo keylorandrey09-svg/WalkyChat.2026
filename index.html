@@ -869,6 +869,12 @@
   .acc-usage-plan-price{font-size:0.78rem;color:var(--text-3);font-weight:500;letter-spacing:-0.01em;}
   /* "Cambiar de plan": acción al fondo de la tarjeta, a lo ancho para el móvil */
   .acc-usage-action{margin-top:0.85rem;padding-top:0.85rem;border-top:1px solid var(--border);}
+  .acc-cancel-notice{
+    margin-top:0.7rem;font-size:0.8rem;line-height:1.4;
+    color:var(--amber-text);background:var(--amber-bg);
+    border:1px solid var(--amber-border);border-radius:9px;
+    padding:0.55rem 0.7rem;
+  }
   .acc-plan-cta{
     display:block;width:100%;box-sizing:border-box;text-align:center;
     background:transparent;border:1px solid var(--border-strong);color:var(--text-1);
@@ -4594,6 +4600,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
                 </div>
               </div>
               <div class="acc-usage-foot" id="acc-renewal">Plan Free · sin ciclo de renovación</div>
+              <div class="acc-cancel-notice" id="acc-cancel-notice" style="display:none;"></div>
               <div class="acc-usage-action">
                 <button class="acc-plan-cta" onclick="openPlanModal()">Cambiar de plan</button>
               </div>
@@ -4804,7 +4811,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     stats: { weekly: [0, 0, 0, 0] },
     events: [],          /* eventos crudos { automation_id, event_type, status, created_at } */
     anRange: 720,        /* rango de Analíticas en horas (24 | 168 | 720 | 2160) */
-    usage: { periodStart: null, sent: 0, limit: 600 }  /* uso real del ciclo (RPC get_current_usage) */
+    usage: { periodStart: null, sent: 0, limit: 600 },  /* uso real del ciclo (RPC get_current_usage) */
+    subscription: { currentPeriodEnd: null, cancelAtPeriodEnd: false, status: null }
   };
   let listFilter = 'all';
   let editingId = null;
@@ -4971,6 +4979,20 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
         : { periodStart: null, sent: 0, limit: appState.plan.msgLimit };
     } catch(e){
       appState.usage = { periodStart: null, sent: 0, limit: appState.plan.msgLimit };
+    }
+
+    /* Suscripción (para la cancelación in-app). La cancelación es al final del
+       período pagado: cancel_at_period_end=true + current_period_end = fecha de fin. */
+    try {
+      const { data: subRow } = await sb.from('subscriptions')
+        .select('current_period_end,cancel_at_period_end,status').maybeSingle();
+      appState.subscription = subRow
+        ? { currentPeriodEnd: subRow.current_period_end,
+            cancelAtPeriodEnd: !!subRow.cancel_at_period_end,
+            status: subRow.status }
+        : { currentPeriodEnd: null, cancelAtPeriodEnd: false, status: null };
+    } catch(e){
+      appState.subscription = { currentPeriodEnd: null, cancelAtPeriodEnd: false, status: null };
     }
 
     /* Notificaciones globales (novedades, actualizaciones, ayuda, soporte).
@@ -5273,10 +5295,37 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       return;
     }
 
-    /* Free no se "compra": se cancela la suscripción. Y eso necesita la API
-       key, que vive en el servidor. Pendiente: Edge Function de cancelación. */
+    /* Free no se "compra": se cancela la suscripción al final del período pagado
+       (el usuario sigue con su plan hasta esa fecha). El backend lo hace vía
+       la Edge Function paddle-cancel (que usa la API key del servidor). */
     if(name === 'Free'){
-      showToast('Para bajar a Free hay que cancelar tu suscripción. Escríbenos a walkychat.2026@gmail.com y lo hacemos.', 'info');
+      const ok = await confirmAction({
+        title: 'Cancelar suscripción',
+        message: 'Tu plan ' + appState.plan.name + ' seguirá activo hasta el final del período que ya pagaste; después bajarás a Free. ¿Cancelar?',
+        confirmLabel: 'Cancelar suscripción', danger: true
+      });
+      if(!ok) return;
+      setLoading(btn, true);
+      try {
+        const { data, error } = await sb.functions.invoke('paddle-cancel');
+        setLoading(btn, false);
+        if(error || !data || !data.ok){
+          showToast('No se pudo cancelar. Intentá de nuevo o escribinos a walkychat.2026@gmail.com.', 'error');
+          return;
+        }
+        let msg = 'Suscripción cancelada. Seguís con ' + appState.plan.name + ' hasta el final del período.';
+        if(data.effective_at){
+          const d = new Date(data.effective_at);
+          msg = 'Cancelada. Seguís con ' + appState.plan.name + ' hasta el ' + d.toLocaleDateString('es') + ', luego pasás a Free.';
+          appState.subscription.currentPeriodEnd = data.effective_at;
+        }
+        appState.subscription.cancelAtPeriodEnd = true;
+        showToast(msg, 'success');
+        renderAll();
+      } catch(e){
+        setLoading(btn, false);
+        showToast('No se pudo cancelar. Intentá de nuevo.', 'error');
+      }
       return;
     }
 
@@ -5892,6 +5941,21 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
     const lastEl = document.getElementById('acc-sum-last');
     if(lastEl) lastEl.textContent = relTimeEs(u.lastSignInAt) || '—';
+
+    /* Aviso de cancelación programada (baja a Free al final del período). */
+    const cn = document.getElementById('acc-cancel-notice');
+    if(cn){
+      const sub = appState.subscription;
+      if(sub && sub.cancelAtPeriodEnd){
+        const f = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString('es') : null;
+        cn.textContent = f
+          ? 'Tu suscripción se cancela el ' + f + '. Después pasarás a Free.'
+          : 'Tu suscripción se cancelará al final del período. Después pasarás a Free.';
+        cn.style.display = 'block';
+      } else {
+        cn.style.display = 'none';
+      }
+    }
   }
 
   /* Renovación del ciclo: fecha exacta un mes después del ancla (created_at),
