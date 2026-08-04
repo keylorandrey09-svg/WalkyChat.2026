@@ -883,6 +883,7 @@
     transition:border-color .15s,color .15s,background .15s;
   }
   .acc-plan-cta:hover{border-color:var(--text-3);background:var(--hover);}
+  .acc-cancel-notice .acc-plan-cta{margin-top:0.55rem;}
   /* Debajo de ~980px el aside no cabe cómodo: vuelve a una sola columna */
   @media (max-width:980px){
     .acc-wrap{max-width:640px;}
@@ -5412,6 +5413,40 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     }
   }
 
+  /* Reactivar una suscripción con cancelación programada: quita el cambio
+     programado en Paddle (scheduled_change:null) vía la Edge Function
+     paddle-reactivate. Solo funciona antes del vencimiento (mientras la sub
+     sigue activa); ya cancelada, Paddle no la reinstala. El webhook pone
+     cancel_at_period_end=false. */
+  async function reactivarSuscripcion(btn){
+    setLoading(btn, true);
+    try{
+      const { data, error } = await sb.functions.invoke('paddle-reactivate');
+      if(error || !data || !data.ok){
+        setLoading(btn, false);
+        showToast('No se pudo reactivar. Intentá de nuevo o escribinos a walkychat.2026@gmail.com.', 'error');
+        return;
+      }
+      showToast('Reactivando tu suscripción…', 'success');
+      for(let i = 0; i < 10; i++){
+        await new Promise(r => setTimeout(r, 1500));
+        try{
+          await fetchUserState();
+          if(appState.subscription && !appState.subscription.cancelAtPeriodEnd){
+            setLoading(btn, false);
+            renderAll();
+            showToast('Listo. Tu suscripción sigue activa y no se cancelará.', 'success');
+            return;
+          }
+        }catch(e){}
+      }
+      setLoading(btn, false);
+      showToast('La reactivación se registró. Si el aviso no desaparece en un minuto, recargá.', 'info');
+    }catch(e){
+      setLoading(btn, false);
+      showToast('No se pudo reactivar. Intentá de nuevo.', 'error');
+    }
+  }
   /* ===================== AUTH: UI ===================== */
   let authMode = 'login';
 
@@ -5996,12 +6031,15 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       const sub = appState.subscription;
       if(sub && sub.cancelAtPeriodEnd){
         const f = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString('es') : null;
-        cn.textContent = f
+        const txt = f
           ? 'Tu suscripción se cancela el ' + f + '. Después pasarás a Free.'
           : 'Tu suscripción se cancelará al final del período. Después pasarás a Free.';
+        cn.innerHTML = '<div>' + txt + '</div>'
+          + '<button type="button" class="acc-plan-cta" onclick="reactivarSuscripcion(this)">Reactivar suscripción</button>';
         cn.style.display = 'block';
       } else {
         cn.style.display = 'none';
+        cn.innerHTML = '';
       }
     }
   }
