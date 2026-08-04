@@ -5329,6 +5329,54 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       return;
     }
 
+    /* Ya tenés un plan de pago (Pro/Max): esto es upgrade/downgrade, NO una
+       compra nueva. Abrir otro checkout crearía una SEGUNDA suscripción en
+       Paddle (cobrada aparte). En su lugar modificamos la suscripción vigente
+       vía la Edge Function paddle-change-plan (API de Paddle, prorrateo
+       inmediato). Paddle dispara subscription.updated y el webhook re-aplica
+       el plan (fuente única de verdad). */
+    if(['pro','max'].includes((appState.plan.name||'').toLowerCase())){
+      const actual = PLANS.find(x => x.name === appState.plan.name);
+      const sube = actual ? (p.msgLimit > actual.msgLimit) : true;
+      const ok = await confirmAction({
+        title: sube ? ('Subir a ' + p.name) : ('Bajar a ' + p.name),
+        message: sube
+          ? ('Vas a pasar a ' + p.name + '. Se te cobrará la diferencia prorrateada ahora y el cambio es inmediato.')
+          : ('Vas a pasar a ' + p.name + '. El tiempo de ' + appState.plan.name + ' que no usaste se te acredita a favor de tu próxima factura. El cambio es inmediato.'),
+        confirmLabel: sube ? ('Subir a ' + p.name) : ('Bajar a ' + p.name)
+      });
+      if(!ok) return;
+      setLoading(btn, true);
+      const previo = appState.plan.name;
+      try{
+        const { data, error } = await sb.functions.invoke('paddle-change-plan', { body: { plan: name } });
+        if(error || !data || !data.ok){
+          setLoading(btn, false);
+          showToast('No se pudo cambiar el plan. Intentá de nuevo o escribinos a walkychat.2026@gmail.com.', 'error');
+          return;
+        }
+        showToast('Cambio recibido. Actualizando tu plan…', 'success');
+        for(let i = 0; i < 10; i++){
+          await new Promise(r => setTimeout(r, 1500));
+          try{
+            await fetchUserState();
+            if(appState.plan.name !== previo){
+              setLoading(btn, false);
+              renderAll();
+              renderPlanOptions();
+              showToast('Ya estás en el plan ' + appState.plan.name + '.', 'success');
+              return;
+            }
+          }catch(e){}
+        }
+        setLoading(btn, false);
+        showToast('El cambio se registró. Si el plan no se actualiza en un minuto, recargá.', 'info');
+      }catch(e){
+        setLoading(btn, false);
+        showToast('No se pudo cambiar el plan. Intentá de nuevo.', 'error');
+      }
+      return;
+    }
     if(!paddleListo()){
       showToast('Los pagos todavía no están configurados.', 'error');
       return;
