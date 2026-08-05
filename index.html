@@ -260,6 +260,8 @@
   .eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:0.68rem;font-weight:500;color:var(--text-3);margin-bottom:0.7rem;font-family:var(--mono);}
   .empty-title{font-size:1.4rem;font-weight:700;letter-spacing:-0.02em;margin:0 0 0.6rem;}
   .empty-desc{color:var(--text-2);font-size:0.95rem;line-height:1.6;max-width:420px;margin:0 auto 1.8rem;}
+  /* Gráfico de seguimiento del onboarding "Conecta tu Instagram": oculto salvo en móvil (regla en @media 768px) */
+  .ig-connect-visual{display:none;}
 
   /* Diagrama de señal apagado — estado vacío estilo "Señal Silente" */
   .signal-diagram{width:220px;height:96px;margin:0 auto 1.8rem;display:block;}
@@ -1209,6 +1211,10 @@
     #ig-banner .empty-icon{margin-bottom:0.9rem !important;}
     #ig-banner h1{margin-bottom:0.45rem !important;}
     #ig-banner > p{margin-bottom:1.25rem !important;}
+    /* "Conecta tu Instagram": centrar vertical + gráfico de seguimiento (solo móvil) */
+    #ig-banner{min-height:calc(100vh - 13.25rem);justify-content:center;padding-top:0 !important;padding-bottom:0 !important;}
+    #ig-banner .ig-status-dot{fill:var(--text-3) !important;}
+    #ig-banner .ig-connect-visual{display:block;margin-top:2.4rem;}
     .ob-stepper{margin-top:1.35rem;}
     .ob-benefits{margin-top:1.2rem;margin-bottom:1.75rem;padding:1.1rem 1.2rem;}
     .ob-benefits-title{margin-bottom:0.85rem;}
@@ -3947,7 +3953,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
         <!-- ESTADO: Instagram no conectado — se muestra SOLO esto -->
         <div id="ig-banner" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:3rem;">
           <div class="empty-icon" style="margin-bottom:1.4rem;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--text-2)"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.5"/><circle cx="17.2" cy="6.8" r="0.6" fill="#5FE08A"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--text-2)"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.5"/><circle class="ig-status-dot" cx="17.2" cy="6.8" r="0.6" fill="#5FE08A"/></svg>
           </div>
           <h1 style="font-size:1.5rem;font-weight:700;letter-spacing:-0.02em;margin:0 0 0.7rem;">Conecta tu Instagram</h1>
           <p style="color:var(--text-2);font-size:0.95rem;line-height:1.6;max-width:380px;margin:0 0 1.8rem;">
@@ -3959,6 +3965,17 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
           </div>
           <button class="btn btn-primary lg" style="width:auto;" onclick="startInstagramOAuth(this)">Conectar con Instagram</button>
           <p class="ig-req-note" style="margin:0.9rem 0 0;">Requiere una cuenta profesional de Instagram (Creador o Empresa).</p>
+          <div class="ig-connect-visual" aria-hidden="true">
+            <svg width="220" height="80" viewBox="0 0 230 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="26" y="20" width="48" height="48" rx="13" fill="var(--text-3)"/>
+              <circle cx="50" cy="37" r="6.4" fill="#FFFFFF"/>
+              <path d="M40 58 a10 10 0 0 1 20 0" fill="#FFFFFF"/>
+              <rect x="156" y="20" width="48" height="48" rx="13" fill="var(--green-bg)" stroke="var(--green-border)" stroke-width="1.6"/>
+              <path d="M171 44l6 6 11-13" stroke="var(--green)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="82" y1="44" x2="145" y2="44" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M143 39l6 5-6 5" stroke="var(--text-3)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
         </div>
 
         <!-- ESTADO: Instagram conectado, sin automatizaciones todavía -->
