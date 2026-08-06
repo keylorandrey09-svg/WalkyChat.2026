@@ -5696,6 +5696,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       showToast('Instagram conectado', 'success');
       await fetchUserState();
       renderAll();
+      goToView('inicio');
     }catch(e){
       showIgConnectError();
       showToast('La conexi\u00f3n con Instagram no se complet\u00f3.', 'error');
