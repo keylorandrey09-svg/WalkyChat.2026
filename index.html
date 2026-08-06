@@ -5694,10 +5694,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       }
       clearIgConnectError();
       showToast('Instagram conectado', 'success');
-      await fetchUserState();
-      hideLanding();
-      renderAll();
-      goToView('inicio');
+      await enterApp();
     }catch(e){
       showIgConnectError();
       showToast('La conexi\u00f3n con Instagram no se complet\u00f3.', 'error');
