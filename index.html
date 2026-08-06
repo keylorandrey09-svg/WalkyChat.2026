@@ -7864,7 +7864,11 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
        venimos de un reload ESTANDO dentro (la URL trae "#app") Y hay sesión
        válida. Al abrir el archivo/enlace en fresco (sin "#app") siempre se ve la
        landing, aunque exista una sesión guardada. */
-    var inApp = (location.hash || '').indexOf('app') !== -1;
+    /* Retorno de un login OAuth (Google): Supabase vuelve con code/access_token
+       en la URL. En ese caso, con sesión válida, entrar directo al panel aunque
+       no haya "#app". */
+    var oauthReturn = /[?&#](code|access_token)=/.test(location.search + location.hash);
+    var inApp = ((location.hash || '').indexOf('app') !== -1) || oauthReturn;
     var session = null;
     try {
       var res = await sb.auth.getSession();
