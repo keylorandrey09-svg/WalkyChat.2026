@@ -1,5 +1,8 @@
 {
   "rewrites": [
+    { "source": "/legal/privacidad", "destination": "/legal/privacidad.html" },
+    { "source": "/legal/terminos", "destination": "/legal/terminos.html" },
+    { "source": "/legal/datos", "destination": "/legal/datos.html" },
     { "source": "/legal/:doc", "destination": "/index.html" },
     { "source": "/oauth/instagram", "destination": "/index.html" }
   ]
