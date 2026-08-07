@@ -4411,11 +4411,6 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
               <div class="stat-sub" id="an-active-sub">de 0 totales</div>
             </div>
           </div>
-
-          <div class="chart-card">
-            <div class="chart-card-title" id="an-chart-title">Mensajes entregados por semana</div>
-            <div class="anc-wrap" id="an-chart"></div>
-          </div>
         </div>
       </div>
     </div>
@@ -6799,37 +6794,21 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     const cfg = AN_RANGES[h];
     if(!cfg) return;
     const now = Date.now();
-    const buckets = anBuckets(cfg.unit, now);
-    const from = buckets[0].start;
-
-    /* Agregación dentro de la misma ventana que dibuja el gráfico */
+    const from = now - h * 3600 * 1000;   /* ventana real: últimas h horas */
     let detected = 0, sent = 0;
-    const values = new Array(buckets.length).fill(0);
     (appState.events || []).forEach(e => {
       const ts = new Date(e.created_at).getTime();
       if(isNaN(ts) || ts < from || ts > now) return;
-      detected++;                    /* toda fila en la ventana = una deteccion */
-      if(e.status === 'sent'){
-        sent++;
-        for(let i = buckets.length - 1; i >= 0; i--){
-          if(ts >= buckets[i].start){ values[i]++; break; }
-        }
-      }
+      detected++;
+      if(e.status === 'sent') sent++;
     });
-
-    /* Textos del rango */
     document.getElementById('an-subtitle').textContent = cfg.subtitle;
     document.getElementById('an-detected-sub').textContent = cfg.sub;
-    document.getElementById('an-chart-title').textContent = cfg.chart;
     document.getElementById('an-detected').textContent = fmt(detected);
     document.getElementById('an-sent').textContent = fmt(sent);
-    /* El límite del plan es mensual: solo tiene sentido compararlo en 30 días */
     document.getElementById('an-sent-sub').textContent = h === 720
       ? 'de ' + appState.plan.msgLimit + ' del plan ' + appState.plan.name
       : cfg.sub;
-
-    anChart = { buckets: buckets, values: values };
-    renderAnChart();
   }
 
 
