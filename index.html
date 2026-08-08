@@ -4241,6 +4241,12 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
               <input type="text" id="dm-link" placeholder="https://tu-link.com" oninput="onMessageInput()">
             </div>
 
+            <div class="field" id="dm-link-label-field" style="display:none;">
+              <label class="field-label">Texto del botón</label>
+              <input type="text" id="dm-link-label" maxlength="20" placeholder="Ver enlace" oninput="onMessageInput()">
+              <div class="field-hint">Máx. 20 caracteres. Si lo dejás vacío, se usa "Ver enlace".</div>
+            </div>
+
             <div class="form-footer">
               <button class="btn btn-ghost" onclick="goToStep(2)">Atrás</button>
               <button class="btn btn-primary" id="btn-step3" disabled onclick="goToStep(4)">Continuar</button>
@@ -4320,6 +4326,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
                 <span class="pv-mini"><i></i></span>
                 <div class="pv-grp">
                   <div class="pv-bub pv-bub-in"><span id="preview-message">Escribe tu mensaje para verlo aquí</span><span class="pv-brand" id="preview-brand" style="display:none;"> · Powered by WalkyChat</span></div>
+                  <div class="pv-qr" id="preview-link-btn" style="display:none;">Ver enlace</div>
                 </div>
               </div>
             </div>
@@ -5073,6 +5080,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       keyword: a.keyword,
       message: a.message,
       link: a.link || '',
+      link_label: a.link_label || '',
       comment_reply: a.comment_reply || '',
       follow_gate: !!a.follow_gate,
       follow_gate_message: a.follow_gate_message || '',
@@ -5795,6 +5803,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     onKeywordInput(ki);
     document.getElementById('dm-message').value = a.message || '';
     document.getElementById('dm-link').value = a.link || '';
+    document.getElementById('dm-link-label').value = a.link_label || '';
     /* Reconstruye la selección múltiple desde lo guardado (retrocompatible). */
     const savedReplies = parseReplies(a.comment_reply);
     createState.replyPresets = [];
@@ -6920,6 +6929,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     keyword: '',
     message: '',
     link: '',
+    linkLabel: '',      /* texto del botón del link (default "Ver enlace") */
     replyPresets: [0],  /* índices de presets elegidos (multi-selección) */
     replyCustom: '',    /* texto de la respuesta personalizada */
     replyCustomOn: false,/* si la casilla "Escribir la mía" está activa */
@@ -6931,7 +6941,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   let editingPostIndex = null;  /* índice del enlace en edición, o null */
 
   function resetCreateFlow(){
-    createState = { postUrls: [], keyword: '', message: '', link: '', replyPresets: [0], replyCustom: '', replyCustomOn: false, followGate: false, followGateMessage: FOLLOW_GATE_DEFAULT, followGateReminder: '' };
+    createState = { postUrls: [], keyword: '', message: '', link: '', linkLabel: '', replyPresets: [0], replyCustom: '', replyCustomOn: false, followGate: false, followGateMessage: FOLLOW_GATE_DEFAULT, followGateReminder: '' };
     const rc = document.getElementById('reply-custom');
     if(rc){ rc.value = ''; }
     const rcnt = document.getElementById('reply-count');
@@ -6946,6 +6956,9 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     document.getElementById('keyword-input').value = '';
     document.getElementById('dm-message').value = '';
     document.getElementById('dm-link').value = '';
+    document.getElementById('dm-link-label').value = '';
+    var _llf = document.getElementById('dm-link-label-field'); if(_llf) _llf.style.display = 'none';
+    var _plb = document.getElementById('preview-link-btn'); if(_plb) _plb.style.display = 'none';
     document.getElementById('keyword-count').textContent = '0';
     document.getElementById('message-count').textContent = '0';
     document.getElementById('preview-keyword').textContent = 'GUIA';
@@ -7190,15 +7203,31 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   function onMessageInput(){
     const textarea = document.getElementById('dm-message');
     const linkInput = document.getElementById('dm-link');
+    const labelInput = document.getElementById('dm-link-label');
     createState.message = textarea.value;
     createState.link = linkInput.value.trim();
+    createState.linkLabel = labelInput ? labelInput.value : '';
     document.getElementById('message-count').textContent = textarea.value.length;
 
-    let preview = textarea.value || 'Escribe tu mensaje para verlo aquí';
-    if(textarea.value && createState.link){
-      preview = textarea.value + ' ' + createState.link;
+    /* El "Texto del botón" solo tiene sentido cuando hay link */
+    const labelField = document.getElementById('dm-link-label-field');
+    if(labelField) labelField.style.display = createState.link ? '' : 'none';
+
+    /* Mensaje arriba, sin el link pegado */
+    document.getElementById('preview-message').textContent =
+      textarea.value || 'Escribe tu mensaje para verlo aquí';
+
+    /* Link como botón debajo del mensaje (o nada si no hay link) */
+    const linkBtn = document.getElementById('preview-link-btn');
+    if(linkBtn){
+      if(createState.link){
+        linkBtn.textContent = (createState.linkLabel || '').trim() || 'Ver enlace';
+        linkBtn.style.display = '';
+      } else {
+        linkBtn.style.display = 'none';
+      }
     }
-    document.getElementById('preview-message').textContent = preview;
+
     updateBrandMark();
     scrollPreviewDM('bottom');
 
@@ -7431,6 +7460,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       keyword: createState.keyword,
       message: createState.message,
       link: createState.link || null,
+      link_label: (createState.linkLabel || '').trim() || null,
       comment_reply: serializeReplies(getSelectedReplies()),
       follow_gate: !!createState.followGate,
       follow_gate_message: createState.followGate ? (createState.followGateMessage || FOLLOW_GATE_DEFAULT) : null,
