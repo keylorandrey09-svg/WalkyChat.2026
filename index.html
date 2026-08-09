@@ -4765,7 +4765,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     if(viewName === 'despliegues') renderDespliegues();
     /* El gráfico se mide en píxeles reales: hay que dibujarlo con la vista ya
        visible, porque una vista oculta (display:none) mide 0 de ancho. */
-    if(viewName === 'analiticas') renderAnalytics();
+    if(viewName === 'analiticas'){ renderAnalytics(); refreshData({ force: true }); }
     if(viewName === 'notificaciones'){ renderNotificaciones(); markNotificationsSeen(); }
     if(['inicio','automatizaciones','despliegues','registros','analiticas'].indexOf(viewName) !== -1){
       refreshData();
@@ -4927,6 +4927,22 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
      refrescamos en vivo, sin recargar ni cambiar de vista. */
   let _rtChannel = null;
   let _rtTimer = null;
+  let _rtCatchup = [];
+  /* Refresco en vivo robusto: un refresco inmediato (coalescido) + recuperaciones
+     programadas. El envío (status 'sent') es un UPDATE que puede completarse hasta
+     ~90s después de la detección y cuyo Realtime no siempre llega; estas
+     recuperaciones lo captan sin depender del poll de 10s ni recargar de más.
+     Cada evento nuevo reinicia el calendario, así una ráfaga no acumula timers. */
+  function scheduleLiveRefresh(){
+    clearTimeout(_rtTimer);
+    _rtTimer = setTimeout(function(){ refreshData({ force: true }); }, 1000);
+    _rtCatchup.forEach(clearTimeout);
+    _rtCatchup = [12000, 40000, 80000].map(function(ms){
+      return setTimeout(function(){
+        if(document.visibilityState === 'visible'){ refreshData({ force: true }); }
+      }, ms);
+    });
+  }
   function startRealtime(){
     const uid = appState.user && appState.user.id;
     if(!uid || _rtChannel) return;                 /* sin usuario o ya suscrito */
@@ -4934,15 +4950,16 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       .on('postgres_changes',
           { event: '*', schema: 'public', table: 'automation_events', filter: 'user_id=eq.' + uid },
           function(){
-            /* coalesce ráfagas (detección + envío del mismo comentario) en un refresh */
-            clearTimeout(_rtTimer);
-            _rtTimer = setTimeout(function(){ refreshData({ force: true }); }, 1000);
+            /* Detección (INSERT) y envío (UPDATE) del mismo comentario se
+               coalescen en un refresco inmediato + recuperaciones. */
+            scheduleLiveRefresh();
           })
       .subscribe();
   }
   function stopRealtime(){
     if(_rtChannel){ try { sb.removeChannel(_rtChannel); } catch(e){} _rtChannel = null; }
     clearTimeout(_rtTimer);
+    _rtCatchup.forEach(clearTimeout); _rtCatchup = [];
   }
 
   /* Respaldo del Realtime: los envíos (status 'sent') se registran como UPDATE
@@ -5060,7 +5077,10 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
 
     /* Traer todos los eventos del usuario de una vez y agregarlos en memoria */
     const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: events } = await sb.from('automation_events').select('automation_id,event_type,status,created_at');
+    const { data: events } = await sb.from('automation_events')
+      .select('automation_id,event_type,status,created_at')
+      .order('created_at', { ascending: false })
+      .limit(5000);
     const ev = events || [];
     appState.events = ev; /* crudos, para re-agregar por rango en Analíticas */
 
