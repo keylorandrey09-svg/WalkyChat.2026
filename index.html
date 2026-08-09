@@ -4760,6 +4760,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       else if(editingId === null && !createHasContent()){ resetCreateFlow(); }
       /* editando o con borrador en curso -> se conserva */
     }
+    if(viewName === 'cuenta') syncIgProfile();
     if(viewName === 'registros') renderRegistros();
     if(viewName === 'despliegues') renderDespliegues();
     /* El gráfico se mide en píxeles reales: hay que dibujarlo con la vista ya
@@ -4840,6 +4841,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     igConnected: false,
     igHandle: '',
     igType: '',
+    igName: '',
+    igAvatar: '',
     automations: [],     /* { id, name, keyword, message, link, postUrls, status, detected, sent } */
     stats: { weekly: [0, 0, 0, 0] },
     events: [],          /* eventos crudos { automation_id, event_type, status, created_at } */
@@ -5042,6 +5045,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       appState.igConnected = !!ig.connected;
       appState.igHandle = ig.handle || '';
       appState.igType = ig.account_type || '';
+      appState.igName = ig.display_name || '';
+      appState.igAvatar = ig.profile_picture_url || '';
     }
 
     /* Automatizaciones + publicaciones vinculadas + conteo de eventos */
@@ -5573,6 +5578,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     try{ if((location.hash || '').indexOf('app') === -1) location.hash = 'app'; }catch(e){}
     await fetchUserState();
     renderAll();
+    syncIgProfile();
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app-root').style.display = '';
     goToView('inicio');
@@ -5718,6 +5724,23 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   }
 
   /* Formatea account_type real (sin inventar). */
+  /* Sincroniza foto de perfil y nombre reales desde Instagram (Edge Function
+     ig-profile-sync). Se llama al entrar a la app y al abrir Cuenta, así la
+     foto/el nombre reflejan el estado actual de Instagram. La URL de la foto
+     caduca a los pocos días; por eso se refresca en vez de fijarla. */
+  async function syncIgProfile(){
+    if(!appState.igConnected) return;
+    try{
+      const { data, error } = await sb.functions.invoke('ig-profile-sync');
+      if(error || !data || !data.ok) return;
+      if(data.handle) appState.igHandle = data.handle;
+      appState.igName   = data.display_name || '';
+      appState.igAvatar = data.profile_picture_url || '';
+      if(data.account_type) appState.igType = data.account_type;
+      renderAll();
+    }catch(e){ /* silencioso: si falla, se conserva lo ya cacheado */ }
+  }
+
   function formatIgType(t){
     var v = (t || '').toString().toUpperCase();
     if(v === 'BUSINESS') return 'Cuenta profesional \u00b7 Empresa';
@@ -5739,6 +5762,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     appState.igConnected = false;
     appState.igHandle = '';
     appState.igType = '';
+    appState.igName = '';
+    appState.igAvatar = '';
     renderAll();
     goToView('cuenta');
     showToast('Instagram desconectado');
@@ -5976,11 +6001,30 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     document.getElementById('account-ig-disconnected').style.display = appState.igConnected ? 'none' : 'block';
     document.getElementById('account-ig-connected').style.display = appState.igConnected ? 'block' : 'none';
     document.getElementById('acc-ig-footer').style.display = appState.igConnected ? 'flex' : 'none';
-    document.getElementById('acc-ig-handle').textContent = appState.igHandle || '—';
-    document.getElementById('acc-ig-type').textContent = appState.igConnected ? formatIgType(appState.igType) : '—';
-    /* Avatar: inicial del handle */
-    const h = (appState.igHandle || '').replace(/^@/, '');
-    document.getElementById('acc-avatar').textContent = h ? h.charAt(0).toUpperCase() : '@';
+    /* Identidad: nombre arriba (como en Instagram), @handle + tipo debajo */
+    (function(){
+      const nm = appState.igName || '';
+      document.getElementById('acc-ig-handle').textContent =
+        appState.igConnected ? (nm || appState.igHandle || '—') : '—';
+      const parts = appState.igConnected
+        ? (nm ? [appState.igHandle, formatIgType(appState.igType)] : [formatIgType(appState.igType)])
+        : [];
+      document.getElementById('acc-ig-type').textContent = parts.filter(Boolean).join(' · ') || '—';
+      /* Avatar: foto real de Instagram; si no hay o falla al cargar, inicial del handle */
+      const box = document.getElementById('acc-avatar');
+      const hh = (appState.igHandle || '').replace(/^@/, '');
+      const initial = hh ? hh.charAt(0).toUpperCase()
+        : (nm ? nm.charAt(0).toUpperCase() : '@');
+      box.textContent = initial;
+      if(appState.igConnected && appState.igAvatar){
+        const img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.alt = '';
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;';
+        img.onload = function(){ box.textContent = ''; box.appendChild(img); };
+        img.src = appState.igAvatar;
+      }
+    })();
     document.getElementById('acc-usage-plan').textContent = 'Plan ' + appState.plan.name;
     document.getElementById('acc-usage-price').textContent = appState.plan.price;
     document.getElementById('acc-usage-detected').textContent = fmt(c.detected);
