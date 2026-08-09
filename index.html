@@ -5047,10 +5047,10 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     /* Automatizaciones + publicaciones vinculadas + conteo de eventos */
     const { data: autos } = await sb.from('automations').select('*').order('created_at', { ascending: false });
     const list = autos || [];
-    const { data: postRows } = await sb.from('automation_posts').select('automation_id,post_url,post_type');
+    const { data: postRows } = await sb.from('automation_posts').select('automation_id,post_url,post_type,ig_media_id');
     const postsBy = {};
     (postRows || []).forEach(r => {
-      (postsBy[r.automation_id] = postsBy[r.automation_id] || []).push({ url: r.post_url, type: r.post_type });
+      (postsBy[r.automation_id] = postsBy[r.automation_id] || []).push({ url: r.post_url, type: r.post_type, ig_media_id: r.ig_media_id });
     });
 
     /* Traer todos los eventos del usuario de una vez y agregarlos en memoria */
@@ -5795,7 +5795,7 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     createInitDone = true;
     editingId = id;
     goToView('crear');
-    createState.postUrls = (a.postUrls || []).map(p => ({ url: p.url, type: p.type }));
+    createState.postUrls = (a.postUrls || []).map(p => ({ url: p.url, type: p.type, mediaId: p.ig_media_id || null }));
     renderPostCards();
     checkStep1();
     const ki = document.getElementById('keyword-input');
@@ -6556,8 +6556,18 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     const entry = { url: clean, type: parseIgUrl(clean).type };
     const btn = document.querySelector('[data-add-btn="' + automationId + '"]');
     if(btn) setLoading(btn, true);
+    const vres = await verifyPostOwnership(clean);
+    if(vres.reason === 'no_account'){
+      if(btn) setLoading(btn, false);
+      showToast('Primero conectá tu cuenta de Instagram en WalkyChat.', 'error'); return;
+    }
+    if(vres.ok === true && vres.owned === false){
+      if(btn) setLoading(btn, false);
+      showToast('Solo podés agregar publicaciones de tu cuenta de Instagram conectada.', 'error'); return;
+    }
+    const vMedia = (vres.ok && vres.owned) ? (vres.media_id || null) : null;
     const { error } = await sb.from('automation_posts').insert({
-      user_id: uid, automation_id: automationId, post_url: entry.url, post_type: entry.type
+      user_id: uid, automation_id: automationId, post_url: entry.url, post_type: entry.type, ig_media_id: vMedia
     });
     if(btn) setLoading(btn, false);
     if(error){
@@ -6979,7 +6989,15 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     return null;
   }
 
-  function addPostUrl(){
+  async function verifyPostOwnership(url){
+    try {
+      const { data, error } = await sb.functions.invoke('verify-post', { body: { url } });
+      if(error || !data) return { ok: false, reason: 'error' };
+      return data;
+    } catch(e){ return { ok: false, reason: 'error' }; }
+  }
+
+  async function addPostUrl(){
     hidePostUrlError();
     const input = document.getElementById('post-url-input');
     const url = input.value.trim();
@@ -6989,25 +7007,38 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       return;
     }
     const clean = url.split('?')[0].replace(/\/+$/, '');
-
-    /* duplicado dentro de esta palabra clave (ignorando el que se edita) */
     const dupIndex = createState.postUrls.findIndex(p => p.url === clean);
     if(dupIndex !== -1 && dupIndex !== editingPostIndex){
       showPostUrlError('Esa publicación ya está agregada a esta palabra clave.');
       return;
     }
-
-    /* UNICIDAD GLOBAL: el enlace no puede pertenecer a otra palabra clave */
     const owner = findUrlOwner(clean);
     if(owner){
       showPostUrlError('Esta publicación ya está asignada a la palabra clave «' + owner.keyword + '». Elimínala de esa automatización antes de reutilizarla.');
       return;
     }
 
-    const entry = { url: clean, type: parseIgUrl(clean).type };
+    /* Verificar que la publicación sea de la cuenta de Instagram conectada */
+    const addBtn = document.getElementById('add-post-btn');
+    const prevLabel = addBtn ? addBtn.textContent : '';
+    if(addBtn){ addBtn.disabled = true; addBtn.textContent = 'Verificando...'; }
+    input.disabled = true;
+    const res = await verifyPostOwnership(clean);
+    input.disabled = false;
+    if(addBtn){ addBtn.disabled = false; addBtn.textContent = prevLabel || 'Agregar publicación'; }
+
+    if(res.reason === 'no_account'){
+      showPostUrlError('Primero conectá tu cuenta de Instagram en WalkyChat.');
+      return;
+    }
+    if(res.ok === true && res.owned === false){
+      showPostUrlError('Solo podés agregar publicaciones de tu cuenta de Instagram conectada a WalkyChat.');
+      return;
+    }
+    const mediaId = (res.ok && res.owned) ? (res.media_id || null) : null;
+    const entry = { url: clean, type: parseIgUrl(clean).type, mediaId: mediaId };
 
     if(editingPostIndex !== null){
-      /* edición de un enlace existente */
       createState.postUrls[editingPostIndex] = entry;
       editingPostIndex = null;
       document.getElementById('add-post-btn').textContent = 'Agregar publicación';
@@ -7019,7 +7050,6 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       }
       createState.postUrls.push(entry);
     }
-
     input.value = '';
     renderPostCards();
     checkStep1();
@@ -7515,7 +7545,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     /* Reemplazar las publicaciones vinculadas (borrar e insertar el set actual) */
     await sb.from('automation_posts').delete().eq('automation_id', automationId);
     const postRows = createState.postUrls.map(p => ({
-      user_id: uid, automation_id: automationId, post_url: p.url, post_type: p.type
+      user_id: uid, automation_id: automationId, post_url: p.url, post_type: p.type,
+      ig_media_id: p.mediaId || null
     }));
     const { error: postsError } = await sb.from('automation_posts').insert(postRows);
     setLoading(btn, false);
