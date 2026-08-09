@@ -6658,72 +6658,55 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
      reloj, días naturales, semanas (de lunes) o meses. El último tramo es el
      que está en curso. La ventana de cálculo empieza donde empieza el tramo
      más viejo, así la suma del gráfico siempre coincide con los totales. */
-  function anBuckets(unit, now){
+  /* Tramos alineados a la unidad natural del rango, que rotan con el tiempo.
+     El total se calcula sobre la ventana que cubren (suma de barras = total).
+     24h: 24 h; 7d: 7 días; 30d: 5 semanas (lun-dom); 90d: 6 tramos de 15 días. */
+  function anBuckets(h, now){
     const d = new Date(now);
     const out = [];
-    if(unit === 'hour'){
+    const DAY = ['dom','lun','mar','mié','jue','vie','sáb'];
+    if(h === 24){
+      // 24 tramos de 1 hora (última hora = la actual)
       for(let i = 23; i >= 0; i--){
         const s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours() - i);
-        const e = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours() - i + 1);
+        const e = new Date(s.getTime() + 3600000);
         const hh = (s.getHours() < 10 ? '0' : '') + s.getHours();
-        const he = (e.getHours() < 10 ? '0' : '') + e.getHours();
-        out.push({ start: +s, end: +e, label: hh + 'h', full: hh + ':00 – ' + he + ':00' });
+        out.push({ start: +s, end: +e, label: hh + 'h', full: hh + ':00' });
       }
-    } else if(unit === 'day'){
+    } else if(h === 168){
+      // 7 tramos, uno por día, con nombre del día
       for(let i = 6; i >= 0; i--){
         const s = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i);
         const e = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i + 1);
         out.push({ start: +s, end: +e,
-          label: s.toLocaleDateString('es', { weekday: 'short' }).replace('.', ''),
+          label: DAY[s.getDay()],
           full: s.getDate() + ' ' + AN_MES[s.getMonth()] });
       }
-    } else if(unit === 'week'){
-      const dow = (d.getDay() + 6) % 7;   /* 0 = lunes */
+    } else if(h === 720){
+      // ~5 tramos por semana (lunes a domingo), el último en curso
+      const dow = (d.getDay() + 6) % 7;              // 0 = lunes
+      const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow);
       for(let i = 4; i >= 0; i--){
-        const s = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow - i * 7);
-        const e = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow - i * 7 + 7);
+        const s = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - i * 7);
+        const e = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 7);
         out.push({ start: +s, end: +e,
           label: s.getDate() + ' ' + AN_MES[s.getMonth()],
-          full: 'semana del ' + s.getDate() + ' ' + AN_MES[s.getMonth()] });
+          full: 'Semana del ' + s.getDate() + ' ' + AN_MES[s.getMonth()] });
       }
     } else {
-      for(let i = 2; i >= 0; i--){
-        const s = new Date(d.getFullYear(), d.getMonth() - i, 1);
-        const e = new Date(d.getFullYear(), d.getMonth() - i + 1, 1);
+      // 90 días → 6 tramos de 15 días (rotando desde hoy hacia atrás)
+      const today = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); // fin de hoy
+      for(let i = 5; i >= 0; i--){
+        const e = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i * 15);
+        const s = new Date(e.getFullYear(), e.getMonth(), e.getDate() - 15);
+        const eLast = new Date(e.getFullYear(), e.getMonth(), e.getDate() - 1);
         out.push({ start: +s, end: +e,
-          label: AN_MES[s.getMonth()],
-          full: AN_MES[s.getMonth()] + ' ' + s.getFullYear() });
+          label: s.getDate() + ' ' + AN_MES[s.getMonth()],
+          full: s.getDate() + ' ' + AN_MES[s.getMonth()] + ' – ' + eLast.getDate() + ' ' + AN_MES[eLast.getMonth()] });
       }
     }
     return out;
   }
-
-  /* Tramos que cubren EXACTAMENTE la ventana del rango [ahora-h, ahora], para
-     que el gráfico sea la representación visual de los mismos totales de las
-     tarjetas (su suma coincide con el total). 24h: 24 tramos de 1h; 7d: 7 de
-     1 día; 30d: 30 de 1 día; 90d: 30 de 3 días. */
-  function anBucketsRolling(h, now){
-    const from = now - h * 3600 * 1000;
-    const n = (h === 24) ? 24 : (h === 168) ? 7 : 30;
-    const span = (now - from) / n;
-    const out = [];
-    for(let i = 0; i < n; i++){
-      const st = from + i * span;
-      const ds = new Date(st);
-      let label, full;
-      if(h === 24){
-        const hh = (ds.getHours() < 10 ? '0' : '') + ds.getHours();
-        label = hh + 'h';
-        full = hh + ':00';
-      } else {
-        label = ds.getDate() + ' ' + AN_MES[ds.getMonth()];
-        full = ds.getDate() + ' ' + AN_MES[ds.getMonth()];
-      }
-      out.push({ start: st, end: st + span, label: label, full: full });
-    }
-    return out;
-  }
-
   /* Techo "redondo" del eje Y para que las líneas de guía caigan en enteros. */
   function anNiceMax(m){
     if(m <= 1) return 1;
@@ -6834,9 +6817,8 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
     const cfg = AN_RANGES[h];
     if(!cfg) return;
     const now = Date.now();
-    const buckets = anBucketsRolling(h, now);
-    const from = buckets[0].start;   /* ventana real: últimas h horas */
-    const span = (now - from) / buckets.length;
+    const buckets = anBuckets(h, now);
+    const from = buckets[0].start;                 // ventana = desde el tramo más viejo
 
     let detected = 0, sent = 0;
     const values = new Array(buckets.length).fill(0);
@@ -6846,10 +6828,10 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       detected++;
       if(e.status === 'sent'){
         sent++;
-        let idx = Math.floor((ts - from) / span);
-        if(idx < 0) idx = 0;
-        if(idx >= buckets.length) idx = buckets.length - 1;
-        values[idx]++;
+        // ubicar el evento en su tramo real (no por span fijo)
+        for(let i = buckets.length - 1; i >= 0; i--){
+          if(ts >= buckets[i].start){ values[i]++; break; }
+        }
       }
     });
 
