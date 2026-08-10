@@ -4978,9 +4978,10 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   }
 
   async function fetchUserState(){
-    appState.igConnected = false;
-    appState.igHandle = '';
-    appState.automations = [];
+    /* No reseteamos igConnected/igHandle/igName/igAvatar/automations aquí: durante
+       la recarga se conserva el último estado bueno, así ningún render intermedio
+       (foco, poll, cambio de zona) muestra la pantalla de "Conectar Instagram" ni
+       estados vacíos. Cada dato se sobrescribe abajo con lo que devuelva su consulta. */
     appState.stats = { weekly: [0, 0, 0, 0] };
     appState.notifications = appState.notifications || [];
 
@@ -5064,6 +5065,12 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
       appState.igType = ig.account_type || '';
       appState.igName = ig.display_name || '';
       appState.igAvatar = ig.profile_picture_url || '';
+    } else {
+      appState.igConnected = false;
+      appState.igHandle = '';
+      appState.igType = '';
+      appState.igName = '';
+      appState.igAvatar = '';
     }
 
     /* Automatizaciones + publicaciones vinculadas + conteo de eventos */
@@ -6030,19 +6037,36 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
         ? (nm ? [appState.igHandle, formatIgType(appState.igType)] : [formatIgType(appState.igType)])
         : [];
       document.getElementById('acc-ig-type').textContent = parts.filter(Boolean).join(' · ') || '—';
-      /* Avatar: foto real de Instagram; si no hay o falla al cargar, inicial del handle */
+      /* Avatar idempotente: solo se reconstruye cuando cambia la URL. Así los
+         re-render (refrescos, cambios de zona, salir de Cuenta) NO destruyen la
+         imagen ni muestran la inicial un instante. Guarda la URL vigente en un
+         data-attr y compara; si es la misma, no toca el DOM. */
       const box = document.getElementById('acc-avatar');
       const hh = (appState.igHandle || '').replace(/^@/, '');
       const initial = hh ? hh.charAt(0).toUpperCase()
         : (nm ? nm.charAt(0).toUpperCase() : '@');
-      box.textContent = initial;
-      if(appState.igConnected && appState.igAvatar){
-        const img = new Image();
-        img.referrerPolicy = 'no-referrer';
-        img.alt = '';
-        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;';
-        img.onload = function(){ box.textContent = ''; box.appendChild(img); };
-        img.src = appState.igAvatar;
+      const wantSrc = (appState.igConnected && appState.igAvatar) ? appState.igAvatar : '';
+      if(box.dataset.avatarSrc !== wantSrc){
+        box.dataset.avatarSrc = wantSrc;
+        if(wantSrc){
+          /* Solo mostramos la inicial si aún no hay ninguna imagen puesta; si ya
+             había una, la dejamos hasta que cargue la nueva (cero parpadeo). */
+          if(!box.querySelector('img')) box.textContent = initial;
+          const img = new Image();
+          img.referrerPolicy = 'no-referrer';
+          img.alt = '';
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;';
+          img.onload = function(){
+            if(box.dataset.avatarSrc === wantSrc){ box.textContent = ''; box.appendChild(img); }
+          };
+          img.onerror = function(){
+            if(box.dataset.avatarSrc === wantSrc && !box.querySelector('img')) box.textContent = initial;
+          };
+          img.src = wantSrc;
+        } else {
+          const old = box.querySelector('img'); if(old) old.remove();
+          box.textContent = initial;
+        }
       }
     })();
     document.getElementById('acc-usage-plan').textContent = 'Plan ' + appState.plan.name;
