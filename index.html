@@ -5599,6 +5599,17 @@ input[type="text"]:focus, input[type="url"]:focus, textarea:focus,
   }
 
   async function enterApp(){
+    /* Garantizar appState.user: algunas rutas llaman a enterApp sin haberlo
+       seteado (p. ej. el retorno de OAuth de Instagram). Sin esto, uid queda
+       null y el guardado de automatizaciones falla (user_id NOT NULL + RLS)
+       hasta recargar. Lo tomamos de la sesión persistida de Supabase. */
+    if(!appState.user){
+      try{
+        const { data } = await sb.auth.getSession();
+        const u = data && data.session && data.session.user;
+        if(u) appState.user = mapAuthUser(u);
+      }catch(e){}
+    }
     hideLanding();
     /* Marca "dentro de la app": al recargar con "#app" en la URL, init entra
        directo a la app en vez de mostrar la landing. */
